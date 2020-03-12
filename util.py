@@ -7,8 +7,8 @@ if '/home/aistudio/external-libraries' not in sys.path:
 
 import numpy as np
 import math
-import scipy.ndimage
-from config import *
+from scipy import ndimage
+
 # TODO: 清理函数，去除不需要的，对需要的加上清晰注释
 
 
@@ -251,3 +251,23 @@ def pad_volume(volume, pad_size, pad_value=0):
     volume = np.pad(volume, margin, 'constant', constant_values=(pad_value))
     # print(volume.shape)
     return volume
+    
+
+def filter_largest_volume(vol):
+    ''' 过滤，只保留最大的volume '''
+    # TODO 需要能处理vol 是一个batch的情况
+    vol, num = ndimage.label(vol, np.ones([3,3,3]))
+    maxi = 0
+    maxnum = 0
+    for i in range(1,num):
+        count = vol[vol == i].size
+        if count > maxnum:
+            maxi = i
+            maxnum = count
+    vol[vol != maxi ] = 0
+    vol[vol == maxi] = 1
+    return vol
+
+
+
+

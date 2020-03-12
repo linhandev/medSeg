@@ -111,7 +111,8 @@ def main():
     param_base_dir=os.path.join(param_base_dir,net_type)
     infer_param_path=os.path.join(param_base_dir,"inf")
     ckpt_param_path=os.path.join(param_base_dir,"ckpt")
-
+    print(infer_param_path)
+    print(ckpt_param_path)
     
     train_reader=paddle.batch(paddle.reader.shuffle(data_reader(),int(batch_size*1.5)),batch_size)
     test_reader=paddle.batch(paddle.reader.shuffle(data_reader(8,9),int(batch_size*1.5)),batch_size)
