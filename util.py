@@ -1,6 +1,7 @@
 '''
 包含环境变量和常用函数
 '''
+import os
 import sys
 if '/home/aistudio/external-libraries' not in sys.path:
     sys.path.append('/home/aistudio/external-libraries')
