@@ -1,0 +1,4 @@
+nibabel 
+scikit-image 
+tqdm 
+numpy
