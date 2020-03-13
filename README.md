@@ -9,12 +9,13 @@
 
 ## 使用方法
 ### 配置环境
-进行训练需要有lits数据集，在aistudio上可以找到。[训练集](https://aistudio.baidu.com/aistudio/datasetDetail/10273) [测试集](https://aistudio.baidu.com/aistudio/datasetDetail/10292) <br>
-数据集下载，解压之后将所有的训练集volume放到一个文件夹，所有的训练集label放到一个文件夹，测试集volume放到一个文件夹。修改 config.py 中对应的路径。
 安装环境依赖:
 ```shell
 pip install -r requirements.txt
 ```
+paddle框架的安装参考[paddle官网](https://www.paddlepaddle.org.cn/)
+如果进行训练需要有lits数据集，在aistudio上可以找到。[训练集](https://aistudio.baidu.com/aistudio/datasetDetail/10273) [测试集](https://aistudio.baidu.com/aistudio/datasetDetail/10292) <br>
+数据集下载，解压之后将所有的训练集volume放到一个文件夹，所有的训练集label放到一个文件夹，测试集volume放到一个文件夹。修改 config.py 中对应的路径。
 
 ### 预处理
 配置完毕需要首先进行数据预处理，这里主要是将数据从3D转为2.5D的slice，方便后续训练，也可以在这一步结合一些预处理步骤，比如窗口化，3D旋转之类的。这里前面的路径都配置好了的话应该不会有问题。
