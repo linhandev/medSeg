@@ -17,7 +17,7 @@ from models.unet_base import unet_base
 from util import * 
 import random
 from paddle.fluid.layers import log
-
+from config import *
 
 def parse_args():
     parser = argparse.ArgumentParser("train")
