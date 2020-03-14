@@ -15,11 +15,11 @@ inference_label_path = os.path.join(data_base_dir, "inf_lab/") # 如果做测试
 
 
 # 预处理数据转换png路径
-volumes_png_path = data_base_dir+"vol_png/"
-labels_png_path = data_base_dir+"lab_png/"
+# volumes_png_path = data_base_dir+"vol_png/"
+# labels_png_path = data_base_dir+"lab_png/"
 
 # 统计量路径
-vol_plt_path=data_base_dir+"vol_plt/"       #存预处理数据分布图片的路径
-lab_plt_path=data_base_dir+"lab_plt/"   #存插值之后label的分布
-vol_percentage_path=data_base_dir+"vol_percentage/" #存 volume 数据分布txt文件的路径
-lab_percentage_path=data_base_dir+"lab_percentage/" #存 label 数据分布txt文件的路径
+# vol_plt_path=data_base_dir+"vol_plt/"       #存预处理数据分布图片的路径
+# lab_plt_path=data_base_dir+"lab_plt/"   #存插值之后label的分布
+# vol_percentage_path=data_base_dir+"vol_percentage/" #存 volume 数据分布txt文件的路径
+# lab_percentage_path=data_base_dir+"lab_percentage/" #存 label 数据分布txt文件的路径
