@@ -243,8 +243,8 @@ def pad_volume(volume, pad_size, pad_value=0):
 	margin = get_pad_len(volume.shape, pad_size)
 	# print(margin)
 	# print(type(margin))
-	margin[2][0] = 0
-	margin[2][1] = 0
+	# margin[2][0] = 0
+	# margin[2][1] = 0
 	volume = np.pad(volume, margin, 'constant', constant_values=(pad_value))
 	# print(volume.shape)
 	return volume
@@ -322,5 +322,5 @@ def save_info(name, header, file_name):
 '''
 import nibabel as nib
 volf = nib.load('/home/aistudio/data/volume/volume-0.nii')
-save_info('v1', volf.header.structarr, 'vol_info.cvs')
+save_info('v1', volf.header.structarr, 'vol_info.csv')
 '''
