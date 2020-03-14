@@ -36,7 +36,7 @@ def data_reader(part_start=0,part_end=8):
 
 	def reader():
 		for data_name in data_part:
-			data=np.load(preprocess_path+data_name)
+			data=np.load(os.path.join(preprocess_path, data_name) )
 			vol=data[0:3,:,:]
 			lab=data[3,:,:]
 			yield (vol.reshape(3,512,512).astype("float32") ,lab.reshape(1,512,512).astype("int32"))
