@@ -14,7 +14,7 @@ from paddle.utils.plot import Ploter
 from models.unet_simple import unet_simple
 from models.deeplabv3p import deeplabv3p
 from models.unet_base import unet_base
-from util import * 
+from util import *
 import random
 from paddle.fluid.layers import log
 from config import *
@@ -179,44 +179,44 @@ def main():
 	plot_prompt = Ploter(train_prompt, test_prompt)
 
 	for pass_id in range(num_epochs):
-		  for data_train in train_loader():
-			avg_loss_value,miou_value = exe.run(train_program,feed=data_train,fetch_list=[avg_loss,miou])
+			for data_train in train_loader():
+				avg_loss_value,miou_value = exe.run(train_program,feed=data_train,fetch_list=[avg_loss,miou])
 
-			if step % 10 == 0:
-				print("\t\tTrain pass %d, Step %d, Cost %f, Miou %f" % (pass_id, step, avg_loss_value[0],miou_value[0]))
+				if step % 10 == 0:
+					print("\t\tTrain pass %d, Step %d, Cost %f, Miou %f" % (pass_id, step, avg_loss_value[0],miou_value[0]))
 
-			# if step % 10 ==0:
-				# plot_prompt.append(train_prompt, step, miou_value[0])
-				# plot_prompt.plot()
+				# if step % 10 ==0:
+					# plot_prompt.append(train_prompt, step, miou_value[0])
+					# plot_prompt.plot()
 
-			eval_miou=0
-			if step % 300 == 0:
-				auc_metric = fluid.metrics.Auc("AUC")
-				test_losses=[]
-				test_mious=[]
-				for _,test_data in enumerate(test_loader()):
-					# print(test_data)
-					# input("pause")
+				eval_miou=0
+				if step % 300 == 0:
+					auc_metric = fluid.metrics.Auc("AUC")
+					test_losses=[]
+					test_mious=[]
+					for _,test_data in enumerate(test_loader()):
+						# print(test_data)
+						# input("pause")
 
-					_, test_loss, test_miou = exe_test.run(test_program, feed=test_data, fetch_list=[prediction, avg_loss, miou])
-					test_losses.append(test_loss[0])
-					test_mious.append(test_miou[0])
+						_, test_loss, test_miou = exe_test.run(test_program, feed=test_data, fetch_list=[prediction, avg_loss, miou])
+						test_losses.append(test_loss[0])
+						test_mious.append(test_miou[0])
 
-				eval_miou=np.average(np.array(test_mious))
-				# plot_prompt.append(test_prompt, step, eval_miou)
-				# plot_prompt.plot()
+					eval_miou=np.average(np.array(test_mious))
+					# plot_prompt.append(test_prompt, step, eval_miou)
+					# plot_prompt.plot()
 
-				print("Test loss: %f ,miou: %f" % (np.average(np.array(test_losses)),eval_miou ) )
+					print("Test loss: %f ,miou: %f" % (np.average(np.array(test_losses)),eval_miou ) )
 
-			if math.isnan(float(avg_loss_value[0])):
-				sys.exit("got NaN loss, training failed.")
+				if math.isnan(float(avg_loss_value[0])):
+					sys.exit("got NaN loss, training failed.")
 
-			if step%200 == 0 and param_base_dir is not None and eval_miou>best_miou:
-				best_miou=eval_miou
-				print("Saving params of step: %d" % step)
-				fluid.io.save_inference_model(infer_param_path, feeded_var_names=['image'], target_vars=[prediction], executor=exe,main_program=train_program)
-				fluid.io.save_persistables(exe,ckpt_param_path,train_program)
-			step += 1
+				if step%200 == 0 and param_base_dir is not None and eval_miou>best_miou:
+					best_miou=eval_miou
+					print("Saving params of step: %d" % step)
+					fluid.io.save_inference_model(infer_param_path, feeded_var_names=['image'], target_vars=[prediction], executor=exe,main_program=train_program)
+					fluid.io.save_persistables(exe,ckpt_param_path,train_program)
+				step += 1
 	print(best_miou)
 
 if __name__ == '__main__':
