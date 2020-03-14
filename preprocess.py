@@ -56,7 +56,7 @@ for i in range(len(volumes)):
 			lab=np.swapaxes(lab,0,2)  #[3,512,512],3 2 1 的顺序，用的时候倒回来, CWH
 
 			data=np.concatenate((vol,lab),axis=0)
-
-			np.save(preprocess_path+"lits{}-{}.npy".format(volumes[i].rstrip(".nii").lstrip("volume"),frame),data )
+			file_name = "lits{}-{}.npy".format(volumes[i].rstrip(".nii").lstrip("volume"),frame)
+			np.save(os.path.join(preprocess_path, file_name), data )
 
 pbar.close()
