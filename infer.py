@@ -8,10 +8,11 @@ import cv2
 
 import paddle
 from paddle import fluid
-from util import *
 import nibabel as nib
 from tqdm import tqdm
 import time
+from util import *
+from config import * 
 
 def parse_args():
 	parser = argparse.ArgumentParser("liverseg")
@@ -32,7 +33,7 @@ def main():
 	inference_scope = fluid.core.Scope()
 
 	# infer_param_path="/home/aistudio/work/params/tumor_unet_.77/inf/"
-	infer_param_path="/home/aistudio/work/params/unet_base_16_iou965/inf/"
+	infer_param_path="/home/aistudio/work/params/unet_base/inf/"
 	if not os.path.exists(inference_label_path):
 		os.makedirs(inference_label_path)
 
@@ -71,7 +72,7 @@ def main():
 					ind = ind + 1
 					pbar.update(1)
 					data = volume[:,:,ind - 1: ind + 2]
-					data = data.swapaxes(0,2).reshape([3,512,512]).astype('float32')
+					data = data.swapaxes(0,2).reshape([3,data.shape[1], data.shape[0]]).astype('float32')
 					batch_data.append(data)
 
 					if ind == volume.shape[2] - 2:

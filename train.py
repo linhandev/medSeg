@@ -190,7 +190,7 @@ def main():
 					# plot_prompt.plot()
 
 				eval_miou=0
-				if step % 300 == 0:
+				if step % 100 == 0:
 					auc_metric = fluid.metrics.Auc("AUC")
 					test_losses=[]
 					test_mious=[]
@@ -211,7 +211,7 @@ def main():
 				if math.isnan(float(avg_loss_value[0])):
 					sys.exit("got NaN loss, training failed.")
 
-				if step%200 == 0 and param_base_dir is not None and eval_miou>best_miou:
+				if step%100 == 0 and param_base_dir is not None and eval_miou>best_miou:
 					best_miou=eval_miou
 					print("Saving params of step: %d" % step)
 					fluid.io.save_inference_model(infer_param_path, feeded_var_names=['image'], target_vars=[prediction], executor=exe,main_program=train_program)

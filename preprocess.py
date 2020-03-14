@@ -2,6 +2,7 @@
 import numpy as np
 import nibabel as nib
 from tqdm import tqdm
+import scipy
 from util import *
 from config import *
 
@@ -29,12 +30,17 @@ for i in range(len(volumes)):
 
 	volume = volf.get_fdata()
 	label = labf.get_fdata()
+	
+	if volume.shape[0] == 1024:
+		volume = scipy.ndimage.interpolation.zoom(volume, [0.5, 0.5, 1])
+		label = scipy.ndimage.interpolation.zoom(label, [0.5, 0.5, 1])
 
 	volume=np.clip(volume,-1024,1024)
 	label = clip_label(label, 1)
 
 	if label.sum() < 32:
 		continue
+	
 
 	# bb_min, bb_max = get_bbs(label)
 	# label = crop_to_bbs(label, bb_min, bb_max)[0]
@@ -46,9 +52,9 @@ for i in range(len(volumes)):
 	volume = volume.astype(np.float16)
 	label = label.astype(np.int8)
 
-	for frame in range(1,volume.shape[2]-1):
-		if np.sum(label[:,:,frame]) > 4:
-			vol=volume[:,:,frame-1:frame+2]
+	for frame in range(1, volume.shape[2]-1):
+		if np.sum(label[:,:,frame]) > 32:
+			vol=volume[:,:,frame-1: frame+2]
 			lab=label[:,:,frame]
 			lab=lab.reshape([lab.shape[0],lab.shape[1],1])
 
@@ -56,7 +62,7 @@ for i in range(len(volumes)):
 			lab=np.swapaxes(lab,0,2)  #[3,512,512],3 2 1 的顺序，用的时候倒回来, CWH
 
 			data=np.concatenate((vol,lab),axis=0)
-			file_name = "lits-{}-{}.npy".format(volumes[i].rstrip(".nii").lstrip("volume"),frame)
+			file_name = "{}-{}.npy".format(volumes[i].rstrip(".nii").lstrip("volume"),frame)
 			np.save(os.path.join(preprocess_path, file_name), data )
 
 pbar.close()
