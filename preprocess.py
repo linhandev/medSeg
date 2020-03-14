@@ -1,11 +1,9 @@
 #encoding=utf-8
-import cv2 as cv
-from util import *
 import numpy as np
 import nibabel as nib
-import matplotlib.pyplot as plt
 from tqdm import tqdm
-
+from util import *
+from config import *
 
 '''
 测试预处理代码，包含脚手架代码，保存成nii文件
