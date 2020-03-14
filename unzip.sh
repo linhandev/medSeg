@@ -1,15 +1,18 @@
-ls /home/aistudio/data/data10273/*.zip | xargs -n1 unzip -d /home/aistudio/data/zip_temp -o
-cd ~/data/
+cd /home/aistudio/data/
+mkdir zip_temp
+for zip in `ls ./data10273/*.zip` ; do unzip -o -d ./zip_temp $zip  ; done
+# rm ./data10273 -rf # 不然空间可能不够
 mkdir volume label
 mv ./zip_temp/volume* ./volume
 mv ./zip_temp/segmentation* ./label
-find ./volume/*.zip | xargs -n1 unzip -d ./volume
-find ./label/*.zip | xargs -n1 unzip -d ./label
+for zip in `ls ./volume/*.zip` ; do unzip -o -d ./volume $zip; done
+for zip in `ls ./label/*.zip` ; do  unzip -o -d ./label $zip ; done
 rm ./volume/*.zip
 rm ./label/*.zip
 rm -rf zip_temp
-python ~/work/preprocess.py
+# for seg in `ls ./label/`; do gzip $seg; done
+# for vol in `ls ./volume/`; do gzip $vol; done
+mkdir preprocess
+# python ~/work/preprocess.py
 # rm -rf ~/data/label/
 # rm -rf ~/data/volume/
-
-export CPU_NUM=1
