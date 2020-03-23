@@ -1,8 +1,9 @@
 # liverSeg
-基于paddle框架的肝脏及肝脏肿瘤分割。这个项目目前还在修改，但是在肝脏上已经做到.92的准确率，后期会加入更多网络结构和loss做成一个小框架。
+基于paddle框架的肝脏及肝脏肿瘤分割。这个项目目前还是work in progress，但是在肝脏上已经做到.92的准确率. 目前支持2.5D Unet,Res-Unet和deeplab. 后期会加入更多网络结构和loss做成一个小框架。
+
 ## 项目结构
 - config.py 包含项目配置，主要是文件路径
-- preprocess.py 进行数据预处理，将3D体数据保存为2.5Dnpy
+- preprocess.py 进行数据预处理，主要将3D体数据保存为2.5D npy
 - train.py 进行Unet训练
 - infer.py 进行前向推理
 
