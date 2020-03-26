@@ -1,9 +1,8 @@
 # liverSeg
-基于paddle框架的肝脏及肝脏肿瘤分割。这个项目目前还是work in progress，但是在肝脏上已经做到.92的准确率. 目前支持2.5D Unet,Res-Unet和DeepLab. 后期会加入更多网络结构和loss做成一个小框架。
-
+基于paddle框架的肝脏及肝脏肿瘤分割。这个项目目前还在修改，但是在肝脏上已经做到.92的准确率，后期会加入更多网络结构和loss做成一个小框架。
 ## 项目结构
 - config.py 包含项目配置，主要是文件路径
-- preprocess.py 进行数据预处理，主要将3D体数据保存为2.5D npy
+- preprocess.py 进行数据预处理，将3D体数据保存为2.5Dnpy
 - train.py 进行Unet训练
 - infer.py 进行前向推理
 
@@ -28,7 +27,7 @@ python preprocess.py
 python train.py --use_gpu = True --num_epochs = 20
 ```
 ### 预测
-最后一步是用训练好的网络进行预测，模型权重的路径在 infer.py 中注意修改，按照上一步实际输出的路径进行修改。代码会读取inference路径下所有的nii逐个进行预测。目前支持的数据格式有 .nii, .nii.gz。预训练权重在[这个](https://github.com/davidlinhl/weights)项目中可以下载。
+最后一步是用训练好的网络进行预测，模型权重的路径在代码中，按照上一步实际输出的路径进行修改。代码会读取inference路径下所有的nii逐个进行预测。目前支持的数据格式有 .nii, .nii.gz。
 ```shell
 python infer.py -use_gpu = True
 ```
