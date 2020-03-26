@@ -12,7 +12,7 @@ import nibabel as nib
 from tqdm import tqdm
 import time
 from util import *
-from config import * 
+from config import *
 
 def parse_args():
 	parser = argparse.ArgumentParser("liverseg")
@@ -25,7 +25,8 @@ def parse_args():
 	return args
 
 def main():
-	use_cuda = args.use_gpu
+	# use_cuda = args.use_gpu
+	use_cuda = False
 	place = fluid.CUDAPlace(0) if use_cuda else fluid.CPUPlace()
 	exe = fluid.Executor(place)
 
@@ -33,7 +34,8 @@ def main():
 	inference_scope = fluid.core.Scope()
 
 	# infer_param_path="/home/aistudio/work/params/tumor_unet_.77/inf/"
-	infer_param_path="/home/aistudio/work/params/unet_base/inf/"
+	# infer_param_path="/home/aistudio/work/params/unet_base/inf/"
+	infer_param_path = "/home/aistudio/weights/liver/liver_inf"
 	if not os.path.exists(inference_label_path):
 		os.makedirs(inference_label_path)
 

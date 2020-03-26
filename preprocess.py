@@ -11,7 +11,7 @@ from lib.threshold_function_module import windowlize_image
 测试预处理代码，包含脚手架代码，保存成nii文件
 写降噪和增强的代码
 '''
-
+volumes = listdir(volumes_path)
 labels = listdir(labels_path)
 
 if not os.path.exists(preprocess_path):
@@ -23,23 +23,22 @@ for i in range(len(labels)):
 	pbar.set_postfix(filename=labels[i].rstrip(".nii"))
 	pbar.update(1)
 
-	volf = nib.load(os.path.join(volumes_path, labels[i]))
+	volf = nib.load(os.path.join(volumes_path, volumes[i]))
 	labf = nib.load(os.path.join(labels_path, labels[i]))
 
 	volume = volf.get_fdata()
 	label = labf.get_fdata()
-	
-	if volume.shape[0] == 1024:
-		volume = scipy.ndimage.interpolation.zoom(volume, [0.5, 0.5, 1])
-		label = scipy.ndimage.interpolation.zoom(label, [0.5, 0.5, 1])
+
+	# if volume.shape[0] == 1024:
+	# 	volume = scipy.ndimage.interpolation.zoom(volume, [0.5, 0.5, 1])
+	# 	label = scipy.ndimage.interpolation.zoom(label, [0.5, 0.5, 1])
 
 # 	volume=np.clip(volume,-1024,1024)
-	volume = windowlize_image(volume, 500, 30)
-	label = clip_label(label, 1)
+	# volume = windowlize_image(volume, 500, 30)
+	# label = clip_label(label, 1)
 
-	if label.sum() < 32:
-		continue
-	
+	# if label.sum() < 32:
+	# 	continue
 
 	# bb_min, bb_max = get_bbs(label)
 	# label = crop_to_bbs(label, bb_min, bb_max)[0]

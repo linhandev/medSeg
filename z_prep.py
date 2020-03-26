@@ -17,8 +17,10 @@ from lib.threshold_function_module import windowlize_image
 volumes = listdir(volumes_path)
 labels = listdir(labels_path)
 
-if not os.path.exists(preprocess_path):
-	os.makedirs(preprocess_path)
+if not os.path.exists(zpreprocess_path):
+	os.makedirs(zpreprocess_path)
+
+flag = True
 
 pbar=tqdm(range(len(labels)) ,desc="数据处理中")
 for i in range(len(labels)):
@@ -27,6 +29,10 @@ for i in range(len(labels)):
 	pbar.update(1)
 
 	print(volumes[i], labels[i])
+	if volumes[i] == 'volume-24.nii':
+		flag = False
+	if flag:
+		continue
 
 	volf = nib.load(os.path.join(volumes_path, volumes[i]))
 	labf = nib.load(os.path.join(labels_path, labels[i]))
@@ -78,12 +84,10 @@ for i in range(len(labels)):
 
 			vol = vol[:, :, 0:512]
 			lab = lab[:, :, 0:512]
-
-			print(vol.shape)
-			print(lab.shape)
-
+			# print(vol.shape)
+			# print(lab.shape)
 			data=np.concatenate((vol, lab), axis=0)
 			file_name = "lits{}-{}.npy".format(volumes[i].rstrip(".nii").lstrip("volume"),frame)
-			np.save(os.path.join(preprocess_path, file_name),data )
+			np.save(os.path.join(zpreprocess_path, file_name),data )
 
 pbar.close()
