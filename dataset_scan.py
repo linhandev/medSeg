@@ -9,7 +9,6 @@ import os
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 
-
 volumes=listdir(volumes_path)
 labels=listdir(labels_path)
 assert len(volumes) == len(labels), '训练中体数据和标签数量不相等'

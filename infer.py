@@ -112,7 +112,7 @@ def main():
 			inference = inference.astype("int16")
 			write_time = time.time()
 			inference_file = nib.Nifti1Image(inference, volf.affine)
-			nib.save(inference_file, os.path.join(inference_label_path, inf_volume))
+			nib.save(inference_file, os.path.join(inference_label_path, inf_volume + '.gz'))
 			write_time = time.time() - write_time
 
 			total_time = time.time() - total_time
