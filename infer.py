@@ -109,7 +109,7 @@ def main():
 				post_time += toc - tic
 
 			inference = filter_largest_volume(inference)
-			inference = inference.astype("int16")
+			inference = inference.astype("uint8")
 			write_time = time.time()
 			inference_file = nib.Nifti1Image(inference, volf.affine)
 			nib.save(inference_file, os.path.join(inference_label_path, inf_volume + '.gz'))

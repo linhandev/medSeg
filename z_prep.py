@@ -20,8 +20,6 @@ labels = listdir(labels_path)
 if not os.path.exists(zpreprocess_path):
 	os.makedirs(zpreprocess_path)
 
-flag = True
-
 pbar=tqdm(range(len(labels)) ,desc="数据处理中")
 for i in range(len(labels)):
 
@@ -29,10 +27,6 @@ for i in range(len(labels)):
 	pbar.update(1)
 
 	print(volumes[i], labels[i])
-	if volumes[i] == 'volume-24.nii':
-		flag = False
-	if flag:
-		continue
 
 	volf = nib.load(os.path.join(volumes_path, volumes[i]))
 	labf = nib.load(os.path.join(labels_path, labels[i]))
@@ -44,8 +38,8 @@ for i in range(len(labels)):
 	label = labf.get_fdata()
 
 # 	volume=np.clip(volume,-1024,1024)
-	volume = windowlize_image(volume, 500, 30)
-	label = clip_label(label, 1)
+	# volume = windowlize_image(volume, 500, 30)
+	# label = clip_label(label, 1)  # 这个在训练的时候都可以做，尽量做一个通用的插值数据集之后更灵活
 
 	spacing = [1, 1, 1]
 	pixdim = [header['pixdim'][1], header['pixdim'][2], header['pixdim'][3]]  # pixdim 是这张 ct 三个维度的间距
@@ -60,9 +54,8 @@ for i in range(len(labels)):
 	# 	plt.show()
 	# 	plt.close()
 
-
-	if label.sum() < 32:
-		continue
+	# if label.sum() < 32:
+	# 	continue
 
 	# bb_min, bb_max = get_bbs(label)
 	# label = crop_to_bbs(label, bb_min, bb_max)[0]
@@ -76,8 +69,8 @@ for i in range(len(labels)):
 	# volume = np.ones( [512, 512, 615])
 	# label = np.ones([512, 512, 615])
 
-	for frame in range(1,volume.shape[0]-1):
-		if np.sum(label[frame ,: ,:]) > 32:
+	for frame in range(1, volume.shape[0]-1):
+		if np.sum(label[frame ,: ,:]) > 128:
 			vol=volume[frame-1: frame+2, :, :]
 			lab=label[frame, :, :]
 			lab = lab.reshape([1, lab.shape[0], lab.shape[1]])
