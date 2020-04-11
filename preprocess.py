@@ -41,7 +41,7 @@ for i in range(len(labels)):
 		continue
 
 	bb_min, bb_max = get_bbs(label)
-	label = crop_to_bbs(label, bb_min, bb_max)[0]
+	label = crop_to_bbs(label, bb_min, bb_max, 0.5)[0]
 	volume = crop_to_bbs(volume, bb_min, bb_max)[0]
 	
 	label = pad_volume(label, [512, 512, 0], 0)  # NOTE: 注意这里使用 0
