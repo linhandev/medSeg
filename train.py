@@ -22,7 +22,7 @@ from config import *
 def parse_args():
 	parser = argparse.ArgumentParser("train")
 	parser.add_argument('--use_gpu',type=bool,default=True,help="是否用GPU")
-	parser.add_argument('--num_epochs', type=int, default=20, help="多少个epoch")
+	parser.add_argument('--num_epochs', type=int, default=10, help="多少个epoch")
 	parser.add_argument('--net', type=str, default="unet_base", help="选择使用网络类型")
 
 	args = parser.parse_args()
@@ -102,7 +102,7 @@ def create_loss(predict, label, num_classes=2):
 
 
 def main():
-	batch_size = 16
+	batch_size = 32
 	num_epochs = args.num_epochs
 	net_type=args.net
 

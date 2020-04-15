@@ -26,6 +26,8 @@ for i in range(len(labels)):
 	volf = nib.load(os.path.join(volumes_path, volumes[i]))
 	labf = nib.load(os.path.join(labels_path, labels[i]))
 
+	save_info(volumes[i], volf.header, './lits.csv')
+
 	volume = volf.get_fdata()
 	label = labf.get_fdata()
 
@@ -51,7 +53,7 @@ for i in range(len(labels)):
 	label = label.astype(np.int8)
 
 	for frame in range(1, volume.shape[2]-1):
-		if np.sum(label[:,:,frame]) > 32:
+		if np.sum(label[:,:,frame]) > 0:
 			vol=volume[:,:,frame-1: frame+2]
 			lab=label[:,:,frame]
 			lab=lab.reshape([lab.shape[0],lab.shape[1],1])
@@ -60,7 +62,8 @@ for i in range(len(labels)):
 			lab=np.swapaxes(lab,0,2)  #[3,512,512],3 2 1 的顺序，用的时候倒回来, CWH
 
 			data=np.concatenate((vol,lab),axis=0)
-			file_name = "{}-{}.npy".format(volumes[i].rstrip(".nii").lstrip("volume"),frame)
+			print(data.dtype)
+			file_name = "lits_raw-{}-{}.npy".format(volumes[i].rstrip(".nii").lstrip("volume-"),frame)
 			np.save(os.path.join(preprocess_path, file_name), data )
 
 pbar.close()

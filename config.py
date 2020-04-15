@@ -9,9 +9,13 @@ volumes_path = os.path.join(data_base_dir, "volume")  # 体数据路径
 labels_path = os.path.join(data_base_dir, "label")    # 标签路径
 preprocess_path = os.path.join(data_base_dir, "preprocess") # 预处理生成的npy数据存储路径
 zpreprocess_path = os.path.join(data_base_dir, "zprep") # Z 方向预处理生成的npy存储路径
+
 # 推理路径
 inference_path = os.path.join(data_base_dir, "inference")  # 做前向的体数据路径
 inference_label_path = os.path.join(data_base_dir, "inf_lab/") # 如果做测试，前向的标签放在这
+
+# BML
+preprocess_path = './train_data'
 
 
 # 预处理数据转换png路径
