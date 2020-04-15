@@ -39,7 +39,10 @@ def data_reader(part_start=0,part_end=8):
 			data=np.load(os.path.join(preprocess_path, data_name) )
 			vol=data[0:3,:,:]
 			lab=data[3,:,:]
-			yield (vol.reshape(3,512,512).astype("float32") ,lab.reshape(1,512,512).astype("int32"))
+			vol, lab = (vol.reshape(3,512,512).astype("float32") ,lab.reshape(1,512,512).astype("int32"))
+			lab[lab == 1] = 0
+			lab[lab == 2] = 1
+			yield (vol, lab)
 	return reader
 
 
@@ -73,7 +76,7 @@ def weighed_binary_cross_entropy(y,y_predict,beta=2,epsilon=1e-6):
 	zeros=fill_constant(y_predict.shape,"float32",0)
 	return elementwise_sub(zeros,ylogp)
 
-def focal_loss(y_predict,y,alpha=0.75,gamma=2,epsilon=1e-6):
+def focal_loss(y_predict, y, alpha=0.85, gamma=2, epsilon=1e-6):
 	'''
 		alpha 变大，对前景类惩罚变大，更加重视
 		gamma 变大，对信心大的例子更加忽略，学习难的例子
@@ -115,7 +118,7 @@ def main():
 	print(ckpt_param_path)
 
 	train_reader=paddle.batch(paddle.reader.shuffle(data_reader(),int(batch_size*1.5)),batch_size)
-	test_reader=paddle.batch(paddle.reader.shuffle(data_reader(8,9),int(batch_size*1.5)),batch_size)
+	test_reader=paddle.batch(paddle.reader.shuffle(data_reader(8,10),int(batch_size*1.5)),batch_size)
 
 	train_program=fluid.Program()
 	train_init=fluid.Program()
@@ -140,7 +143,7 @@ def main():
 
 		miou = mean_iou(prediction, label, 2)
 
-		decay=paddle.fluid.regularizer.L2Decay(0.1)
+# 		decay=paddle.fluid.regularizer.L2Decay(0.1)
 		# optimizer = fluid.optimizer.SGD(learning_rate=0.0005,regularization=decay)
 		# optimizer = fluid.optimizer.DecayedAdagradOptimizer(learning_rate=0.02,regularization=decay)
 		# optimizer = fluid.optimizer.RMSProp(learning_rate=0.1,momentum=0.8,centered=True, regularization=decay)

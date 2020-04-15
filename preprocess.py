@@ -35,20 +35,21 @@ for i in range(len(labels)):
 	# 	volume = scipy.ndimage.interpolation.zoom(volume, [0.5, 0.5, 1])
 	# 	label = scipy.ndimage.interpolation.zoom(label, [0.5, 0.5, 1])
 
-# 	volume=np.clip(volume,-1024,1024)
-	# volume = windowlize_image(volume, 500, 30)
-	# label = clip_label(label, 1)
+ 	# volume=np.clip(volume,-1024,1024)
+	volume = windowlize_image(volume, 500, 30)
+	label = clip_label(label, 2)
 
-	# if label.sum() < 32:
-	# 	continue
+	if label.sum() < 32:
+		continue
 
-	# bb_min, bb_max = get_bbs(label)
-	# label = crop_to_bbs(label, bb_min, bb_max)[0]
-	# volume = crop_to_bbs(volume, bb_min, bb_max)[0]
-	#
-	# label = pad_volume(label, [512, 512, 700], 0)  # NOTE: 注意这里使用 0
-	# volume = pad_volume(volume, [512, 512, 700], -1024)
-
+	bb_min, bb_max = get_bbs(label)
+	label = crop_to_bbs(label, bb_min, bb_max, 0.5)[0]
+	volume = crop_to_bbs(volume, bb_min, bb_max)[0]
+	
+	label = pad_volume(label, [512, 512, 0], 0)  # NOTE: 注意这里使用 0
+	volume = pad_volume(volume, [512, 512, 0], -1024)
+	print("after padding", volume.shape, label.shape)
+	
 	volume = volume.astype(np.float16)
 	label = label.astype(np.int8)
 
