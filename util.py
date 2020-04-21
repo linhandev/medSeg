@@ -212,8 +212,8 @@ def get_pad_len(volume_shape, pad_size):
     # 获取各个方向应该pad的长度
     margin = []
     for x, y in zip(volume_shape, pad_size):
-        if x > y:
-            raise Exception("数据的大小比需要pad到的大小更大", volume_shape, pad_size)
+        if x > y:  # raise Exception("数据的大小比需要pad到的大小更大", volume_shape, pad_size)
+            print("数据的大小比需要pad到的大小更大", volume_shape, pad_size)
         if y != 0:
             print("数据的大小比需要pad到的大小更大", volume_shape, pad_size)
             margin.append(0)
