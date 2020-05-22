@@ -1,3 +1,4 @@
+pip install nibabel -i https://pypi.tuna.tsinghua.edu.cn/simple
 cd /home/aistudio/data/
 mkdir zip_temp
 for zip in `ls ./data10273/*.zip` ; do unzip -o -d ./zip_temp $zip  ; done

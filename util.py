@@ -4,6 +4,7 @@
 import os
 import sys
 
+
 if "/home/aistudio/external-libraries" not in sys.path:
     sys.path.append("/home/aistudio/external-libraries")
 
@@ -208,17 +209,22 @@ def clip_label(label, category):
     return label
 
 
-def get_pad_len(volume_shape, pad_size):
-    # 获取各个方向应该pad的长度
+def get_pad_len(volume_shape, pad_size, strict=True):
+    # 获取各个方向应该pad的长度，如果pad_size一个维度是0则跳过
+
     margin = []
     for x, y in zip(volume_shape, pad_size):
-        if x > y:  # raise Exception("数据的大小比需要pad到的大小更大", volume_shape, pad_size)
-            print("数据的大小比需要pad到的大小更大", volume_shape, pad_size)
-        if y != 0:
-            print("数据的大小比需要pad到的大小更大", volume_shape, pad_size)
+        if y == 0:
             margin.append(0)
-        else:
-            margin.append(y - x)
+            continue
+        if x > y:
+            if strict:
+                raise Exception("Invalid Crop Size", "数据的大小 {} 应小于pad_size {}".format(volume_shape, pad_size))
+            else:
+                margin.append(0)
+        # print(margin)
+        margin.append(y - x)
+
     margin = [
         [int(math.floor(x / 2)), y - int(math.floor(x / 2)) - z] if x != 0 else [0, 0]
         for x, y, z in zip(margin, pad_size, volume_shape)
@@ -226,17 +232,15 @@ def get_pad_len(volume_shape, pad_size):
     return margin
 
 
-"""
-print(get_pad_len([512, 512, 900], [512, 512, 512]))
-"""
+# print(get_pad_len([512, 512, 300], [0, 512, 512]))
 
 
-def pad_volume(volume, pad_size, pad_value=0):
-    # 将volume放在中间，用valuepad到size大小
+def pad_volume(volume, pad_size, pad_value=0, strice=True):
+    # 将volume放在中间，用 pad_value pad 到size大小
     pad = pad_size
     if isinstance(pad_size, int):
         pad_size = [pad for i in range(volume.ndim)]
-    margin = get_pad_len(volume.shape, pad_size)
+    margin = get_pad_len(volume.shape, pad_size, strice)
     # print(margin)
     # print(type(margin))
     # margin[2][0] = 0
@@ -248,7 +252,7 @@ def pad_volume(volume, pad_size, pad_value=0):
 
 def filter_largest_volume(vol):
     """ 过滤，只保留最大的volume """
-    # TODO 需要能处理vol 是一个batch的情况
+    # TODO 需要能处理 vol 是一个batch的情况
     vol, num = ndimage.label(vol, np.ones([3, 3, 3]))
     maxi = 0
     maxnum = 0
