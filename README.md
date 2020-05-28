@@ -35,4 +35,5 @@ python infer.py -use_gpu = True
 这个项目在aistudio中有完整的环境，fork项目可以直接运行，[项目地址](https://aistudio.baidu.com/aistudio/projectdetail/250994)
 
 如果有任何疑问，欢迎加入Aistudio医学兴趣组，和更多大佬一起讨论，共同进步。
-![2132453929.jpg](https://i.loli.net/2020/05/28/HFwS4eNxJPAp72Y.jpg=200X)
+
+<img src="https://i.loli.net/2020/05/28/HFwS4eNxJPAp72Y.jpg" width="200px />
