@@ -36,4 +36,4 @@ python infer.py -use_gpu = True
 
 如果有任何疑问，欢迎加入Aistudio医学兴趣组，和更多大佬一起讨论，共同进步。
 
-<img src="https://i.loli.net/2020/05/28/HFwS4eNxJPAp72Y.jpg" width="200px />
+<img src="https://i.loli.net/2020/05/28/HFwS4eNxJPAp72Y.jpg" alt="2132453929.jpg" style="zoom:40%;" />
