@@ -1,0 +1,15 @@
+preprocess:
+  volumes_path: /home/aistudio/data/volume
+  labels_path: /home/aistudio/data/label
+  preprocess_path: /home/aistudio/data/preprocess  # 预处理生成的npy数据存储路径
+  z_prep_path: /home/aistudio/data/z_prep  # z方向的初始化可以指定不同的路径
+train:
+  preprocess_path: /home/aistudio/data/preprocess  # 用这个路径下的数据进行训练
+inference:
+  inference_path: /home/aistudio/data/inference # 推理数据的路径
+test:
+  volumes_path: /home/aistudio/data/volume
+  labels_path: /home/aistudio/data/volume
+  metrics:
+    - dice
+    - iou

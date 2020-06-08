@@ -210,11 +210,27 @@ def clip_label(label, category):
 
 
 def get_pad_len(volume_shape, pad_size, strict=True):
-    # 获取各个方向应该pad的长度，如果pad_size一个维度是0则跳过
+    """Short summary.
+
+    Parameters
+    ----------
+    volume_shape : type
+        Description of parameter `volume_shape`.
+    pad_size : type
+        Description of parameter `pad_size`.
+    strict : type
+        Description of parameter `strict`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
 
     margin = []
     for x, y in zip(volume_shape, pad_size):
-        if y == 0:
+        if y == -1:
             margin.append(0)
             continue
         if x > y:
@@ -222,7 +238,7 @@ def get_pad_len(volume_shape, pad_size, strict=True):
                 raise Exception("Invalid Crop Size", "数据的大小 {} 应小于pad_size {}".format(volume_shape, pad_size))
             else:
                 margin.append(0)
-        # print(margin)
+            continue
         margin.append(y - x)
 
     margin = [
@@ -232,19 +248,38 @@ def get_pad_len(volume_shape, pad_size, strict=True):
     return margin
 
 
-# print(get_pad_len([512, 512, 300], [0, 512, 512]))
+# print(get_pad_len([3, 512, 300], [3, -1, 512]))
+# print(get_pad_len([8, 512, 300], [4, -1, 512], False))
 
 
 def pad_volume(volume, pad_size, pad_value=0, strice=True):
-    # 将volume放在中间，用 pad_value pad 到size大小
-    pad = pad_size
+    """将volume放在中间，用 pad_value 填充到 pad_size 大小
+    每个维度一共包含三种情况:
+    1. 正常: pad_size大于实际大小,那就计算差多少,在这个维度的两侧均匀的补上
+    2. 忽略: 不希望改变这个维度的大小,pad_size这个维度填 -1
+    3. 错误: volume的大小比 pad_size 还大,在 strice=true 模式下这个报错,终止执行;strice=false模式下这个维度忽略
+
+    Parameters
+    ----------
+    volume : type
+        Description of parameter `volume`.
+    pad_size : int/list/tuple
+        如果是一个int,那么做成一个和volume.ndim维的list,三个维度的大小一样,按照这个pad;如果是list,tuple直接按照这个pad
+    pad_value : type
+        Description of parameter `pad_value`.
+    strice : type
+        Description of parameter `strice`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
     if isinstance(pad_size, int):
-        pad_size = [pad for i in range(volume.ndim)]
+        pad_size = [pad_size for i in range(volume.ndim)]
     margin = get_pad_len(volume.shape, pad_size, strice)
     # print(margin)
-    # print(type(margin))
-    # margin[2][0] = 0
-    # margin[2][1] = 0
     volume = np.pad(volume, margin, "constant", constant_values=(pad_value))
     # print(volume.shape)
     return volume

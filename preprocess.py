@@ -38,8 +38,9 @@ for i in range(len(labels)):
 
     pbar.set_postfix(filename=labels[i].rstrip(".nii"))
     pbar.update(1)
+    print(volumes[i], labels[i])
 
-    assert volumes[i].lstrip("volume").rstrip(".gz") == labels[i].lstrip("segmentation").rstrip(".gz"), "文件名不匹配"
+    # assert volumes[i].lstrip("volume").rstrip(".gz") == labels[i].lstrip("segmentation").rstrip(".gz"), "文件名不匹配"
 
     volf = nib.load(os.path.join(volumes_path, volumes[i]))
     labf = nib.load(os.path.join(labels_path, labels[i]))
@@ -48,6 +49,9 @@ for i in range(len(labels)):
 
     volume = volf.get_fdata()
     label = labf.get_fdata()
+
+    volume = np.rot90(volume)
+    label = np.rot90(label)
 
     if args.interp:
         header = volf.header.structarr
@@ -101,9 +105,9 @@ for i in range(len(labels)):
             volume = volume[:, :, 0:512]
             label = label[:, :, 0:512]
         else:
-            label = pad_volume(label, [0, 512, 512], 0)  # NOTE: 注意标签使用 0
-            volume = pad_volume(volume, [0, 512, 512], -1024)
-
+            label = pad_volume(label, [-1, -1, 512], 0)  # NOTE: 注意标签使用 0
+            volume = pad_volume(volume, [-1, -1, 512], -1024)
+        # print(volume.shape, label.shape)
         for frame in range(1, volume.shape[0] - 1):  # 解决数据不足 512 的问题
             if np.sum(label[frame, :, :]) > args.thresh:
                 vol = volume[frame - 1 : frame + 2, :, :]

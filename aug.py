@@ -18,6 +18,23 @@ random.seed(time.time())
 
 
 def flip(volume, label=None, chance=(0, 0, 0)):
+    """Short summary.
+
+    Parameters
+    ----------
+    volume : type
+        Description of parameter `volume`.
+    label : type
+        Description of parameter `label`.
+    chance : type
+        Description of parameter `chance`.
+
+    Returns
+    -------
+    flip(volume, label=None,
+        Description of returned object.
+
+    """
     if random.random() < chance[0]:
         volume = volume[::-1, :, :]
         if label is not None:
@@ -69,28 +86,31 @@ def zoom(volume, label=None, ratio=[(1, 1), (1, 1), (1, 1)], chance=(0, 0, 0)):
     return volume
 
 
-def crop(volume, label=None, size=[512, 512, 512], pad_value=0):
+def crop(volume, label=None, size=[3, 512, 512], pad_value=0):
     """在随机位置裁剪出一个指定大小的体积，每个维度都有输入图片更大或者size更大两种情况
     如果输入图片更大，保证不会裁剪出图片，位置随机;
-    如果size更大，图片放的位置随机，都会被包括进来，空背景用pad_value补全
+    如果size更大，
 	"""
-
     volume = pad_volume(volume, size, pad_value, False)
     if label is not None:
         lab_size = size
         if label.shape[0] == 1:
-            lab_size[0] = 0
+            lab_size[0] = -1
         label = pad_volume(label, lab_size, pad_value, False)
-
-    center_range = [[math.floor(size[ind] / 2), volume.shape[ind] - math.ceil(size[ind] / 2)] for ind in range(3)]
+    # print("after pad", volume.shape, label.shape)
+    center_range = [
+        [math.floor(size[ind] / 2), volume.shape[ind] - math.floor(size[ind] / 2)] for ind in range(3)
+    ]  # 只能在这个range里截,否则会出去,是左开右闭的
     center = [ra[0] + int(random.random() * (ra[1] - ra[0])) for ra in center_range]
     crop_range = [[center[ind] - math.floor(size[ind] / 2), center[ind] + math.ceil(size[ind] / 2)] for ind in range(3)]
     r = crop_range
     # print(center_range, center, crop_range)
-    volume = volume[r[0][0] : r[0][1], r[1][0] : r[1][1], r[2][0] : r[2][1]]
+    # print("crop range", r)
+    # TODO: 这个位置volume的第一个维度计算的有问题，需要自己从pad到这里crop重新检查代码
+    volume = volume[:, r[1][0] : r[1][1], r[2][0] : r[2][1]]
     if label is not None:
         # TODO: label这里第一个维度可能不一样，目前的思路是如果是2.5d输入，label [1,x,x] 就第一维全返，后两个裁。如果不是就认为是3d的图，正常裁
-        print(label.shape)
+        # print(label.shape)
         if label.shape[0] != 1:
             label = label[r[0][0] : r[0][1], r[1][0] : r[1][1], r[2][0] : r[2][1]]
         else:
@@ -108,13 +128,35 @@ def crop(volume, label=None, size=[512, 512, 512], pad_value=0):
 # cat = skimage.io.imread("./lib/cat.jpeg")
 # plt.imshow(cat)
 # plt.show()
-
+#
 # print(cat.shape)
-# _, cat = flip(cat, cat, (1, 1, 0))
-# cat = rotate(cat, None, ([-45, 45], 0, [0, 0]), (1, 0, 0))
-# cat = zoom(cat, None, [(0.2, 0.3), (0.7, 0.8), (0.9, 1)], (0.5, 1, 0))
+# img, lab = flip(cat, cat, (1, 1, 0))
+# img, lab = rotate(cat, cat, ([-45, 45], 0, [0, 0]), (1, 0, 0))
+# img, lab = zoom(cat, cat, [(0.2, 0.3), (0.7, 0.8), (0.9, 1)], (0.5, 1, 0))
 # print(cat.shape)
-# cat = crop(cat, None, [500, 500, 3])
-
-# plt.imshow(cat)
+# img, label = crop(cat, cat, [500, 500, 3])
+#
+# plt.imshow(img)
 # plt.show()
+#
+# plt.imshow(lab)
+# plt.show()
+
+
+"""
+paddle clas 增广策略
+
+图像变换类：
+旋转
+色调
+背景模糊
+透明度变换
+饱和度变换
+
+图像裁剪类：
+遮挡
+
+图像混叠：
+两幅图一定权重直接叠
+一张图切一部分放到另一张图
+"""

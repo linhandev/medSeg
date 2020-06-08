@@ -1,5 +1,5 @@
-# medSeg
-基于paddle框架开发的医学影像分割工具包。项目目前还在开发中，但是在肝脏上已经能做到 .96 的IOU，效果还可以。欢迎大佬们取用
+# liverSeg
+基于paddle框架的肝脏及肝脏肿瘤分割。这个项目目前还在修改，但是在肝脏上已经做到.92的准确率，后期会加入更多网络结构和loss做成一个小框架。
 ## 项目结构
 - config.py 包含项目配置，主要是文件路径
 - preprocess.py 进行数据预处理，将3D体数据保存为2.5Dnpy
@@ -31,9 +31,6 @@ python train.py --use_gpu = True --num_epochs = 20
 ```shell
 python infer.py -use_gpu = True
 ```
+<br>
 
-这个项目在aistudio中有完整的环境，fork项目可以直接运行，[项目地址](https://aistudio.baidu.com/aistudio/projectdetail/250994)
-
-如果有任何疑问，欢迎加入Aistudio医学兴趣组，和更多大佬一起讨论，共同进步。
-
-<img src="https://i.loli.net/2020/05/28/HFwS4eNxJPAp72Y.jpg" alt="2132453929.jpg" style="zoom:40%;" />
+这个项目在aistudio中有完整的环境，fork项目可以直接运行，[项目地址](https://aistudio.baidu.com/aistudio/projectdetail/250994)中运行

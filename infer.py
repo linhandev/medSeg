@@ -5,6 +5,7 @@ import argparse
 
 import numpy
 import cv2
+from lib.threshold_function_module import windowlize_image
 
 import paddle
 from paddle import fluid
@@ -17,10 +18,11 @@ from config import *
 
 def parse_args():
     parser = argparse.ArgumentParser("liverseg")
-    parser.add_argument("--use_gpu", action="store_true", default=True, help="用GPU推理")
-    parser.add_argument("--batch_size", type=int, default=16, help="推理过程中的batch size")
+    parser.add_argument("--use_gpu", action="store_true", default=False, help="用GPU推理")
+    parser.add_argument("--batch_size", type=int, default=32, help="推理过程中的batch size")
     parser.add_argument("--type", type=str, default="liver", help="针对一个type有一套pipline和权重路径")
-    parser.add_argument("--interp", type="store_true", default=False, help="是否对数据进行插值，用于z方向网络")
+    parser.add_argument("--interp", action="store_true", default=False, help="是否对数据进行插值，用于z方向网络")
+    parser.add_argument("--filter", action="store_true", default=False, help="是否过滤最大联通块")
 
     args = parser.parse_args()
     return args
@@ -36,9 +38,9 @@ def main():
     inference_scope = fluid.core.Scope()
 
     if args.type == "liver":
-        infer_param_path = "/home/aistudio/weights/liver/inf"
+        infer_param_path = "/home/aistudio/data/weights/liver/inf"
     elif args.type == "tumor":
-        infer_param_path = "/home/aistudio/weights/tumor/inf"
+        infer_param_path = "/home/aistudio/data/weights/tumor/inf"
     else:
         raise Exception("错误的前景类别")
 
@@ -118,8 +120,8 @@ def main():
 
                 toc = time.time()
                 post_time += toc - tic
-
-            # inference = filter_largest_volume(inference)
+            if args.filter:
+                inference = filter_largest_volume(inference)
             # inference[30:60, 30:60, 30:60] = 2
             if args.interp:
                 ratio = [1 / x for x in ratio]

@@ -1,3 +1,8 @@
+# project cache
+lits.csv
+test.py
+config.py
+
 # BOS
 bos_conf.py
 
@@ -17,7 +22,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/
