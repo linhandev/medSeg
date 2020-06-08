@@ -1,0 +1,14 @@
+DATA:
+  VOLUMES_PATH: /home/aistudio/data/volume
+  LABELS_PATH: /home/aistudio/data/label
+  PREP_PATH: /home/aistudio/data/preprocess  # 预处理生成的npy数据存储路径
+  Z_PREP_PATH: /home/aistudio/data/z_prep  # z方向的初始化可以指定不同的路径
+
+  INFERENCE_PATH: /home/aistudio/data/inference # 推理数据的路径
+
+  TEST_VOLUMES_PATH: /home/aistudio/data/volume
+  TEST_LABELS_PATH: /home/aistudio/data/volume
+EVAL:
+  METRICS:
+    - DICE
+    - IOU
