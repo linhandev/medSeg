@@ -17,9 +17,14 @@ import logging
 def get_args():
     parser = argparse.ArgumentParser("zip_dataset")
     parser.add_argument(
-        "--dataset_dir", type=str, required=True, help="[必填] 需要压缩的数据集路径，所有文件所在的文件夹"
+        "-i",
+        "--dataset_dir",
+        type=str,
+        required=True,
+        help="[必填] 需要压缩的数据集路径，所有文件所在的文件夹",
     )
     parser.add_argument(
+        "-o",
         "--zip_dir",
         type=str,
         required=True,
@@ -55,20 +60,26 @@ def do_zip(args):
 
     # 2. 确认路径
     print("\n", os.listdir(args.dataset_dir)[:10], "\n")
+
     print("以上是您指定的待压缩路径 {} 下的前10个文件(夹)，请确定该路径是否正确".format(args.dataset_dir))
     cmd = input("如果 是 请输入 y/Y ，按其他任意键退出执行\n")
     if cmd != "y" and cmd != "Y":
         logging.error("用户退出执行")
         exit(0)
 
-    if not os.path.exists(args.zip_dir):  # 如果zip输出路径不存在创建它
-        logging.info("创建zip文件夹: {}".format(args.zip_dir))
-        os.makedirs(args.zip_dir)
-
     dataset_name = os.path.basename(
         args.dataset_dir.rstrip("\\").rstrip("/")
     )  # 文件夹名做数据集名
-    logging.info("使用的数据集名为： {}".format(dataset_name))
+    logging.info("将使用的数据集名为： {}".format(dataset_name))
+    str = input("如果您确定使用上面的数据集名称请输入 y/Y，如果希望使用其他名称请直接输入\n")
+    if str != "Y" and str != "y":
+        dataset_name = str
+    logging.info("最终使用的数据集名为： {}".format(dataset_name))
+    logging.critical(" !!! 开始压缩 !!!")
+
+    if not os.path.exists(args.zip_dir):  # 如果zip输出路径不存在创建它
+        logging.info("创建zip文件夹: {}".format(args.zip_dir))
+        os.makedirs(args.zip_dir)
 
     # 制作当前压缩包名，创建压缩包文件
     zip_num = 1
@@ -78,7 +89,9 @@ def do_zip(args):
 
     files_list = []  # 用来存储待压缩的文件路径和在压缩包中的路径，存到一定数量之后一起往包里压，避免频繁查看当前压缩包大小
     list_size = 0  # 当前 files_list 中文件总大小， 单位B
-    zip_tot_size = args.size * 1000 ** 3  # 每个压缩包不超过这个大小，单位B。因为有的设备上是按照1k换算的，所以保险用1B*1000^3做1G
+    zip_tot_size = (
+        args.size * 1000 ** 3
+    )  # 每个压缩包不超过这个大小，单位B。因为有的设备上是按照1k换算的，所以保险用1B*1000^3做1G
     zip_left_size = zip_tot_size  # 当前压缩包离最大大小还有多少
 
     """
