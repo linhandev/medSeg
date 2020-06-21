@@ -1,128 +1,174 @@
 # encoding=utf-8
+
 import numpy as np
+import os
 import nibabel as nib
 from tqdm import tqdm
 import scipy
-from util import *
-from config import *
-from lib.threshold_function_module import windowlize_image
+import utils.util as util
+
+from utils.config import cfg
+import utils.util as util
+
 import argparse
+import aug
+import vis
+
+np.set_printoptions(threshold=np.inf)
 
 
 """
-测试预处理代码，包含脚手架代码，保存成nii文件
-写降噪和增强的代码
+对 3D 体数据进行一些预处理，并保存成npz文件
+每个npz文件包含volume和label两个数组，volume和label各包含n条扫描记录，文件进行压缩
 """
+# TODO: 支持更多的影像格式
+# TODO: 提供预处理npz gzip选项
+# https://stackoverflow.com/questions/54238670/what-is-the-advantage-of-saving-npz-files-instead-of-npy-in-python-regard
 
 
-parser = argparse.ArgumentParser(description="数据预处理")
-parser.add_argument("--front", type=int, default=1, help="处理的目标前景")
-parser.add_argument("--crop", action="store_true", default=False, help="是否切到只有前景")
-parser.add_argument("--interp", action="store_true", default=False, help="是否进行插值")
-parser.add_argument("--window", action="store_true", default=False, help="是否进行窗口化")
-parser.add_argument("--plane", type=str, default="xy", help="处理的目标前景")
-parser.add_argument("--thresh", type=int, default=512, help="只取前景数量超过thersh的slice")
-args = parser.parse_args()
-print(args)
+def parse_args():
+    parser = argparse.ArgumentParser(description="数据预处理")
+    parser.add_argument("-c", "--cfg_file", type=str, help="配置文件路径")
+    parser.add_argument("opts", nargs=argparse.REMAINDER)
+    args = parser.parse_args()
 
-if args.plane == "xy" and not os.path.exists(preprocess_path):
-    os.makedirs(preprocess_path)
-if args.plane == "xz" and not os.path.exists(z_prep_path):
-    os.makedirs(z_prep_path)
+    if args.cfg_file is not None:
+        cfg.update_from_file(args.cfg_file)
+    if args.opts:
+        cfg.update_from_list(args.opts)
 
-volumes = listdir(volumes_path)
-labels = listdir(labels_path)
 
-pbar = tqdm(range(len(labels)), desc="数据处理中")
-for i in range(len(labels)):
+def main():
+    # 1. 创建输出路径，删除非空的summary表格
+    if cfg.PREP.PLANE == "xy" and not os.path.exists(cfg.DATA.PREP_PATH):
+        os.makedirs(cfg.DATA.PREP_PATH)
+    if cfg.PREP.PLANE == "xz" and not os.path.exists(cfg.DATA.Z_PREP_PATH):
+        os.makedirs(cfg.DATA.Z_PREP_PATH)
 
-    pbar.set_postfix(filename=labels[i].rstrip(".nii"))
-    pbar.update(1)
-    print(volumes[i], labels[i])
+    if os.path.exists(cfg.DATA.SUMMARY_FILE) and os.path.getsize(cfg.DATA.SUMMARY_FILE) != 0:
+        os.remove(cfg.DATA.SUMMARY_FILE)
 
-    # assert volumes[i].lstrip("volume").rstrip(".gz") == labels[i].lstrip("segmentation").rstrip(".gz"), "文件名不匹配"
+    volumes = util.listdir(cfg.DATA.VOLUMES_PATH)
+    labels = util.listdir(cfg.DATA.LABELS_PATH)
 
-    volf = nib.load(os.path.join(volumes_path, volumes[i]))
-    labf = nib.load(os.path.join(labels_path, labels[i]))
+    vol_npz = []
+    lab_npz = []
+    npz_count = 0
 
-    save_info(volumes[i], volf.header, "./lits.csv")
+    pbar = tqdm(range(len(labels)), desc="数据处理中")
+    for i in range(len(labels)):
+        pbar.set_postfix(filename=labels[i] + " " + volumes[i])
+        pbar.update(1)
 
-    volume = volf.get_fdata()
-    label = labf.get_fdata()
+        print(volumes[i], labels[i])
 
-    volume = np.rot90(volume)
-    label = np.rot90(label)
+        volf = nib.load(os.path.join(cfg.DATA.VOLUMES_PATH, volumes[i]))
+        labf = nib.load(os.path.join(cfg.DATA.LABELS_PATH, labels[i]))
 
-    if args.interp:
-        header = volf.header.structarr
-        spacing = [1, 1, 1]
-        pixdim = [header["pixdim"][1], header["pixdim"][2], header["pixdim"][3]]  # pixdim 是这张 ct 三个维度的间距
-        ratio = [pixdim[0] / spacing[0], pixdim[1] / spacing[1], pixdim[2] / spacing[2]]
-        ratio = [1, 1, ratio[2]]
-        volume = scipy.ndimage.interpolation.zoom(volume, ratio, order=3)
-        label = scipy.ndimage.interpolation.zoom(label, ratio, order=0)
+        util.save_info(volumes[i], volf.header, cfg.DATA.SUMMARY_FILE)
 
-    # volume=np.clip(volume,-1024,1024)
-    if args.window:
-        volume = windowlize_image(volume, 500, 30)  # ww wc
+        volume = volf.get_fdata()
+        label = labf.get_fdata()
+        label = label.astype(int)
 
-    label = clip_label(label, args.front)
+        # TODO: 研究nib如何进行体位矫正
+        volume = np.rot90(volume)
+        label = np.rot90(label)
 
-    # if label.sum() < 32:
-    #     continue
+        if cfg.PREP.INTERP:
+            print("interping")
+            header = volf.header.structarr
+            spacing = cfg.PREP.INTERP_PIXDIM
+            # pixdim 是 ct 三个维度的间距
+            pixdim = [header["pixdim"][x] for x in range(1, 4)]
+            for ind in range(3):
+                if spacing[ind] == -1:  # 如果目标spacing为 -1 ,这个维度不进行插值
+                    spacing[ind] = pixdim[ind]
+            ratio = [x / y for x, y in zip(spacing, pixdim)]
+            volume = scipy.ndimage.interpolation.zoom(volume, ratio, order=3)
+            label = scipy.ndimage.interpolation.zoom(label, ratio, order=0)
 
-    if args.crop:
-        bb_min, bb_max = get_bbs(label)
-        label = crop_to_bbs(label, bb_min, bb_max, 0.5)[0]
-        volume = crop_to_bbs(volume, bb_min, bb_max)[0]
+        if cfg.PREP.WINDOW:
+            volume = util.windowlize_image(volume, cfg.PREP.WWWC)
 
-        label = pad_volume(label, [512, 512, 0], 0)  # NOTE: 注意标签使用 0
-        volume = pad_volume(volume, [512, 512, 0], -1024)
-        print("after padding", volume.shape, label.shape)
+        label = util.clip_label(label, cfg.PREP.FRONT)
 
-    volume = volume.astype(np.float16)
-    label = label.astype(np.int8)
+        if cfg.PREP.CROP:  # 裁到只有前景
+            bb_min, bb_max = get_bbs(label)
+            label = crop_to_bbs(label, bb_min, bb_max, 0.5)[0]
+            volume = crop_to_bbs(volume, bb_min, bb_max)[0]
 
-    if args.plane == "xy":
-        for frame in range(1, volume.shape[2] - 1):
-            if np.sum(label[:, :, frame]) > args.thresh:
-                vol = volume[:, :, frame - 1 : frame + 2]
-                lab = label[:, :, frame]
-                lab = lab.reshape([lab.shape[0], lab.shape[1], 1])
+            label = pad_volume(label, [512, 512, 0], 0)  # NOTE: 注意标签使用 0
+            volume = pad_volume(volume, [512, 512, 0], -1024)
+            print("after padding", volume.shape, label.shape)
 
-                vol = np.swapaxes(vol, 0, 2)
-                lab = np.swapaxes(lab, 0, 2)  # [3,512,512],3 2 1 的顺序，用的时候倒回来, CWH
+        volume = volume.astype(np.float16)
+        label = label.astype(np.int8)
 
-                data = np.concatenate((vol, lab), axis=0)
-                # print(data.dtype)
-                file_name = "lits_{}_f{}-{}-{}.npy".format(
-                    args.plane, args.front, volumes[i].rstrip(".nii").lstrip("volume-"), frame
-                )
-                file_path = os.path.join(preprocess_path, file_name)
-                np.save(file_path, data)
-    else:
-        if volume.shape[2] > 512:
-            volume = volume[:, :, 0:512]
-            label = label[:, :, 0:512]
+        crop_size = list(cfg.PREP.SIZE)
+        for ind in range(3):
+            if crop_size[ind] == -1:
+                crop_size[ind] = volume.shape[ind]
+        volume, label = aug.crop(volume, label, crop_size)
+
+        # 开始切片
+        if cfg.PREP.PLANE == "xy":
+            for frame in range(1, volume.shape[2] - 1):
+                if label[:, :, frame].sum() > cfg.PREP.THRESH:
+                    vol = volume[:, :, frame - 1 : frame + 2]
+                    lab = label[:, :, frame]
+                    lab = lab[:, :, np.newaxis]
+
+                    vol = np.swapaxes(vol, 0, 2)
+                    lab = np.swapaxes(lab, 0, 2)  # [3,512,512],CWH 的顺序
+
+                    vol_npz.append(vol.copy())
+                    lab_npz.append(lab.copy())
+                    print("{}片满足，当前共{}".format(frame, len(vol_npz)))
+
+                    if len(vol_npz) == cfg.PREP.BATCH_SIZE:
+                        vols = np.array(vol_npz)
+                        labs = np.array(lab_npz)
+                        print(vols.shape)
+                        print(labs.shape)
+                        print("正在存盘")
+                        file_name = "{}_{}_f{}-{}".format(
+                            cfg.DATA.NAME, cfg.PREP.PLANE, cfg.PREP.FRONT, npz_count
+                        )
+                        file_path = os.path.join(cfg.DATA.PREP_PATH, file_name)
+                        np.savez(file_path, vols=vols, labs=labs)
+                        vol_npz = []
+                        lab_npz = []
+                        npz_count += 1
         else:
-            label = pad_volume(label, [-1, -1, 512], 0)  # NOTE: 注意标签使用 0
-            volume = pad_volume(volume, [-1, -1, 512], -1024)
-        # print(volume.shape, label.shape)
-        for frame in range(1, volume.shape[0] - 1):  # 解决数据不足 512 的问题
-            if np.sum(label[frame, :, :]) > args.thresh:
-                vol = volume[frame - 1 : frame + 2, :, :]
-                lab = label[frame, :, :]
-                lab = lab.reshape([1, lab.shape[0], lab.shape[1]])
+            print(volume.shape, label.shape)
+            for frame in range(1, volume.shape[0] - 1):
+                if label[frame, :, :].sum() > cfg.PREP.THRESH:
+                    vol = volume[frame - 1 : frame + 2, :, :]
+                    lab = label[frame, :, :]
+                    lab = lab.reshape([1, lab.shape[0], lab.shape[1]])
 
-                print(vol.shape)
-                print(lab.shape)
+                    vol_npz.append(vol.copy())
+                    lab_npz.append(lab.copy())
 
-                assert vol.shape == (3, 512, 512), "vol shape incorrect, being{}".format(vol.shape)
-                assert lab.shape == (1, 512, 512), "lab shape incorrect, being{}".format(lab.shape)
+                    if len(vol_npz) == cfg.PREP.BATCH_SIZE:
+                        vols = np.array(vol_npz)
+                        labs = np.array(lab_npz)
+                        print(vols.shape)
+                        print(labs.shape)
+                        print("正在存盘")
+                        file_name = "{}_{}_f{}-{}".format(
+                            cfg.DATA.NAME, cfg.PREP.PLANE, cfg.PREP.FRONT, npz_count
+                        )
+                        file_path = os.path.join(cfg.DATA.Z_PREP_PATH, file_name)
+                        np.savez(file_path, vols=vols, labs=labs)
+                        vol_npz = []
+                        lab_npz = []
+                        npz_count += 1
 
-                data = np.concatenate((vol, lab), axis=0)
-                file_name = "lits_{}_f{}-{}-{}.npy".format(
-                    args.plane, args.front, volumes[i].rstrip(".nii").lstrip("volume-"), frame
-                )
-                np.save(os.path.join(z_prep_path, file_name), data)
-pbar.close()
+    pbar.close()
+
+
+if __name__ == "__main__":
+    parse_args()
+    main()

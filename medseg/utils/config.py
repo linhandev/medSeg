@@ -3,7 +3,7 @@ from ast import literal_eval
 import codecs
 import yaml
 
-
+# 使用的时候如果直接赋值出去，默认是不可变的，如果需要再赋值一定注意
 class PjConfig(dict):
     def __init__(self, *args, **kwargs):
         super(PjConfig, self).__init__(*args, **kwargs)
@@ -33,14 +33,10 @@ class PjConfig(dict):
         return self[key]
 
     def __setitem__(self, key, value):
-        #
         if self.immutable:
             raise AttributeError(
-                'Attempted to set "{}" to "{}", but PjConfig is immutable'.format(
-                    key, value
-                )
+                'Attempted to set "{}" to "{}", but PjConfig is immutable'.format(key, value)
             )
-        #
         if isinstance(value, six.string_types):
             try:
                 value = literal_eval(value)
@@ -109,9 +105,7 @@ class PjConfig(dict):
     def update_from_list(self, config_list):
         if len(config_list) % 2 != 0:
             raise ValueError(
-                "Command line options config format error! Please check it: {}".format(
-                    config_list
-                )
+                "Command line options config format error! Please check it: {}".format(config_list)
             )
         for key, value in zip(config_list[0::2], config_list[1::2]):
             try:
@@ -136,21 +130,108 @@ class PjConfig(dict):
 
 cfg = PjConfig()
 
-""" 路径配置 """
-# 预处理
+"""数据集配置"""
+# 数据集名称
+cfg.DATA.NAME = "lits"
 cfg.DATA.VOLUMES_PATH = "/home/aistudio/data/volume"
 cfg.DATA.LABELS_PATH = "/home/aistudio/data/label"
 cfg.DATA.PREP_PATH = "/home/aistudio/data/preprocess"
-cfg.DATA.Z_PREP_PATH = cfg.DATASET.PREP_PATH  # z 方向初始化可以指定一个独立的输出文件路径
-cfg.DATA.TRAIN_DATA_PATH = cfg.DATASET.PREP_PATH  # 训练时使用的npy保存路径
-# 推理
-cfg.DATA.INFERENCE_PATH = "/home/aistudio/data/inference"
-# 测试（这个测试是独立的用整个volume做测试，测试集在训练过程中随机split）
-cfg.DATA.TEST_VOLUMES_PATH = "/home/aistudio/data/volume"
-cfg.DATA.TEST_LABELS_PATH = "/home/aistudio/data/label"
+# z 方向初始化可以指定一个独立的输出文件路径
+cfg.DATA.Z_PREP_PATH = cfg.DATA.PREP_PATH
+cfg.DATA.SUMMARY_FILE = "./{}.csv".format(cfg.DATA.NAME)
+
+""" 预处理配置 """
+cfg.PREP.PLANE = "xy"  # 预处理进行的平面
+# 处理过程中所有比这个数字大的标签都设为前景
+cfg.PREP.FRONT = 1
+# 是否将数据只 crop 到前景
+cfg.PREP.CROP = False
+# 是否对数据插值改变大小
+cfg.PREP.INTERP = False
+# 进行插值的话目标片间间隔是多少，单位mm，-1的维度不会进行插值
+cfg.PREP.INTERP_PIXDIM = (-1, -1, 1.0)
+cfg.PREP.WINDOW = False  # 是否进行窗口化
+cfg.PREP.WWWC = (180, 50)  # 窗宽窗位
+# 丢弃前景数量少于thresh的slice
+cfg.PREP.THRESH = 256
+# 3D的数据在开始切割之前pad到这个大小，-1的维度会放着不动
+cfg.PREP.SIZE = (512, 512, -1)
+# 预处理过程中多少组数据组成一个npz文件
+cfg.PREP.BATCH_SIZE = 128  # 可以先跑bs=1，看看一对数据多大
+
+"""训练配置"""
+cfg.TRAIN.DATA_PATH = "/home/aistudio/data/preprocess"
+# 训练数据的数量，用来显示训练进度条和时间估计，如果不知道有多少写-1
+cfg.TRAIN.DATA_COUNT = -1
+cfg.TRAIN.PRETRAINED_WEIGHT = ""
+cfg.TRAIN.INF_MODEL_PATH = "./model/lits/inf"
+cfg.TRAIN.CKPT_MODEL_PATH = "./model/lits/ckpt"
+cfg.TRAIN.BEST_MODEL_PATH = "./model/lits/best"
+
+cfg.TRAIN.BATCH_SIZE = 16
+cfg.TRAIN.EPOCHS = 20
+cfg.TRAIN.ARCHITECTURE = "unet_base"
+
+cfg.TRAIN.USE_GPU = True
+# 进行验证
+cfg.TRAIN.DO_EVAL = True
+# 每 snapchost_epoch做一次eval并保存模型
+cfg.TRAIN.SNAPSHOT_BATCH = 1000
+# VDL log路径
+cfg.TRAIN.VDL_LOG = "/home/aistudio/log"
+
+"""数据增强"""
+cfg.AUG.WINDOWLIZE = True
+cfg.AUG.WWWC = cfg.PREP.WWWC
+# 不单独为增强操作设做不做的config，不想做概率设成 0
+# 注意CWH
+# 每个维度进行翻转增强的概率
+cfg.AUG.FLIP.RATIO = (0, 0, 0.5)
+# 进行旋转增强的概率
+cfg.AUG.ROTATE.RATIO = (0, 0.5, 0)
+# 旋转的角度范围，单位度
+cfg.AUG.ROTATE.RANGE = (0, (-15, 15), 0)
+# 进行缩放的概率
+cfg.AUG.ZOOM.RATIO = (0, 0.3, 0.3)
+# 进行缩放的比例
+cfg.AUG.ZOOM.RANGE = ((1, 1), (0.8, 1), (0.8, 1))
+# 进行随机crop的目标大小
+cfg.AUG.CROP.SIZE = (3, 512, 512)
+
+"""推理配置"""
+# 推理的输入数据路径
+cfg.INFER.PATH.INPUT = "/home/aistudio/data/inference"
+# 推理的结果输出路径
+cfg.INFER.PATH.OUTPUT = "/home/aistudio/data/infer_lab"
+# 推理的模型权重路径
+cfg.INFER.PATH.PARAM = "/home/aistudio/weight/liver/inf"
+
+# 是否使用GPU进行推理
+cfg.INFER.USE_GPU = False
+# 推理过程中的 batch_size
+cfg.INFER.BATCH_SIZE = 128
+# 是否进行窗口化，这个和训练过程中的配置应当相同
+cfg.INFER.WINDOWLIZE = True
+# 窗宽窗位
+cfg.INFER.WWWC = (180, 50)
+# 是否进行插值
+cfg.INFER.DO_INTERP = False
+# 如果进行插值，目标的spacing，-1的维度忽略
+cfg.INFER.SPACING = [-1, -1, 1]
+# 是否进行最大连通块过滤
+cfg.INFER.FILTER_LARGES = True
+# 推理过程中区分前景和背景的阈值
+cfg.INFER.THRESH = 0.5
 
 """ 测试配置 """
+# 分割结果的路径
+cfg.EVAL.PATH.RESULT = "/home/aistudio/data/infer_lab"
+# 分割GT标签的路径
+cfg.EVAL.PATH.GT = "/home/aistudio/data/eval_lab"
+# 测试过程中要计算的指标，包括
+# FP，FN，TP，TN(绝对数量)
+# Precision,Recall/Sensitivity,Specificity,Accuracy,Kappa
+# Dice,IOU/VOE
 cfg.EVAL.METRICS = ["IOU"]
 
-cfg.update_from_file("../../config/lits.yaml")
-print(cfg.EVAL.METRICS)
+# print(cfg.EVAL.METRICS)

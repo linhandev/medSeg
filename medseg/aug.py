@@ -10,7 +10,7 @@ import cv2
 import matplotlib.pyplot as plt
 import scipy.ndimage
 import skimage.io
-from util import pad_volume
+from utils.util import pad_volume
 import math
 import time
 
@@ -55,8 +55,7 @@ def flip(volume, label=None, chance=(0, 0, 0)):
 
 # x,y,z 任意角度旋转，背景填充，mirror，0，extend
 # https://stackoverflow.com/questions/20161175/how-can-i-use-scipy-ndimage-interpolation-affine-transform-to-rotate-an-image-ab 需要研究
-# TODO: 支持 padvalue
-def rotate(volume, label=None, angel=([0, 0], [0, 0], [0, 0]), chance=(0, 0, 0)):
+def rotate(volume, label=None, angel=([0, 0], [0, 0], [0, 0]), chance=(0, 0, 0), cval=0):
     """ 按照指定象限旋转
     angel：是角度不是弧度
     """
@@ -64,9 +63,18 @@ def rotate(volume, label=None, angel=([0, 0], [0, 0], [0, 0]), chance=(0, 0, 0))
     for axes in range(3):
         if random.random() < chance[axes]:
             rand_ang = angel[axes][0] + random.random() * (angel[axes][1] - angel[axes][0])
-            volume = scipy.ndimage.rotate(volume, rand_ang, axes=(axes, (axes + 1) % 3), reshape=False)
+            volume = scipy.ndimage.rotate(
+                volume,
+                rand_ang,
+                axes=(axes, (axes + 1) % 3),
+                reshape=False,
+                mode="constant",
+                cval=cval,
+            )
             if label is not None:
-                label = scipy.ndimage.rotate(label, rand_ang, axes=(axes, (axes + 1) % 3), reshape=False)
+                label = scipy.ndimage.rotate(
+                    label, rand_ang, axes=(axes, (axes + 1) % 3), reshape=False,
+                )
     if label is not None:
         return volume, label
     return volume
@@ -74,6 +82,8 @@ def rotate(volume, label=None, angel=([0, 0], [0, 0], [0, 0]), chance=(0, 0, 0))
 
 # 缩放大小， vol 是三阶， lab 是插值， 给的是目标大小
 def zoom(volume, label=None, ratio=[(1, 1), (1, 1), (1, 1)], chance=(0, 0, 0)):
+    ratio = list(ratio)
+    chance = list(chance)
     for axes in range(3):
         if random.random() < chance[axes]:  # 如果随机超过做zoom的概率，那就是不做缩放
             ratio[axes] = ratio[axes][0] + random.random() * (ratio[axes][1] - ratio[axes][0])
@@ -87,45 +97,55 @@ def zoom(volume, label=None, ratio=[(1, 1), (1, 1), (1, 1)], chance=(0, 0, 0)):
 
 
 def crop(volume, label=None, size=[3, 512, 512], pad_value=0):
-    """在随机位置裁剪出一个指定大小的体积，每个维度都有输入图片更大或者size更大两种情况
-    如果输入图片更大，保证不会裁剪出图片，位置随机;
-    如果size更大，
-	"""
+    """在随机位置裁剪出一个指定大小的体积
+    每个维度都有输入图片更大或者size更大两种情况：
+    - 如果输入图片更大，保证不会裁剪出图片，位置随机;
+    - 如果size更大，只进行pad操作，体积在正中间.
+    对于标签，标签中是1的维度不会进行pad；不是1的和volume都一样
+    Parameters
+    ----------
+    volume : np.ndarray
+        Description of parameter `volume`.
+    label : np.ndarray
+        Description of parameter `label`.
+    size : 需要裁出的体积，list
+        Description of parameter `size`.
+    pad_value : int
+        volume用pad_value填充，标签默认用0填充.
+
+    Returns
+    -------
+    type
+        size大小的ndarray.
+
+    """
+    # 1. 先pad一手，让数据至少size大
     volume = pad_volume(volume, size, pad_value, False)
     if label is not None:
-        lab_size = size
-        if label.shape[0] == 1:
-            lab_size[0] = -1
-        label = pad_volume(label, lab_size, pad_value, False)
-    # print("after pad", volume.shape, label.shape)
-    center_range = [
-        [math.floor(size[ind] / 2), volume.shape[ind] - math.floor(size[ind] / 2)] for ind in range(3)
-    ]  # 只能在这个range里截,否则会出去,是左开右闭的
-    center = [ra[0] + int(random.random() * (ra[1] - ra[0])) for ra in center_range]
-    crop_range = [[center[ind] - math.floor(size[ind] / 2), center[ind] + math.ceil(size[ind] / 2)] for ind in range(3)]
-    r = crop_range
-    # print(center_range, center, crop_range)
-    # print("crop range", r)
-    # TODO: 这个位置volume的第一个维度计算的有问题，需要自己从pad到这里crop重新检查代码
-    volume = volume[:, r[1][0] : r[1][1], r[2][0] : r[2][1]]
+        lab_size = list(size)
+        for ind, s in enumerate(label.shape):
+            if s == 1:  # 是1的维度都不动
+                lab_size[ind] = -1
+        label = pad_volume(label, lab_size, 0, False)
+    # 2.随机一个裁剪范围起点，之后进行裁剪
+    crop_low = [int(random.random() * (x - y)) for x, y in zip(volume.shape, size)]
+    r = [[l, l + s] for l, s in zip(crop_low, size)]
+    volume = volume[r[0][0] : r[0][1], r[1][0] : r[1][1], r[2][0] : r[2][1]]
     if label is not None:
-        # TODO: label这里第一个维度可能不一样，目前的思路是如果是2.5d输入，label [1,x,x] 就第一维全返，后两个裁。如果不是就认为是3d的图，正常裁
-        # print(label.shape)
-        if label.shape[0] != 1:
-            label = label[r[0][0] : r[0][1], r[1][0] : r[1][1], r[2][0] : r[2][1]]
-        else:
-            label = label[:, r[1][0] : r[1][1], r[2][0] : r[2][1]]
+        for ind in range(3):
+            if label.shape[ind] == 1:
+                r[ind][0] = 0
+                r[ind][1] = 1
+        label = label[r[0][0] : r[0][1], r[1][0] : r[1][1], r[2][0] : r[2][1]]
         return volume, label
-
     return volume
 
 
-# TODO: 将全流程放进一个函数
-
+# TODO: 将增强全流程放进一个函数
 
 # 随机添加噪声
 
-# cat = skimage.io.imread("./lib/cat.jpeg")
+# cat = skimage.io.imread("~/Desktop/cat.jpg")
 # plt.imshow(cat)
 # plt.show()
 #
@@ -134,7 +154,7 @@ def crop(volume, label=None, size=[3, 512, 512], pad_value=0):
 # img, lab = rotate(cat, cat, ([-45, 45], 0, [0, 0]), (1, 0, 0))
 # img, lab = zoom(cat, cat, [(0.2, 0.3), (0.7, 0.8), (0.9, 1)], (0.5, 1, 0))
 # print(cat.shape)
-# img, label = crop(cat, cat, [500, 500, 3])
+# img, label = crop(cat, cat, [700, 500, 1])
 #
 # plt.imshow(img)
 # plt.show()
