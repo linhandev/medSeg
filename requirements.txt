@@ -1,6 +1,6 @@
-nibabel 
-scikit-image 
-tqdm 
+nibabel
+scikit-image
+tqdm
 numpy
-visualdl==2.0.0b4
-
+visualdl==2.0.0b5
+medpy

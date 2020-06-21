@@ -1,6 +1,14 @@
+# coding=utf-8
+"""
+对数据进行一些检查，避免脏数据影响训练
+"""
+
+
 def data_reader(part_start=0, part_end=10, is_test=False):
     data_names = listdir(preprocess_path)
-    data_part = data_names[len(data_names) * part_start // 10 : len(data_names) * part_end // 10]
+    data_part = data_names[
+        len(data_names) * part_start // 10 : len(data_names) * part_end // 10
+    ]
     random.shuffle(data_part)
 
     def reader():

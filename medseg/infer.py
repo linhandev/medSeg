@@ -2,55 +2,54 @@ from __future__ import print_function
 
 import sys
 import argparse
+import time
+from tqdm import tqdm
+import os
 
-import numpy
+import numpy as np
 import cv2
-from lib.threshold_function_module import windowlize_image
-
+import nibabel as nib
 import paddle
 from paddle import fluid
-import nibabel as nib
-from tqdm import tqdm
-import time
-from util import *
-from config import *
+
+
+import utils.util as util
+from utils.config import cfg
 
 
 def parse_args():
-    parser = argparse.ArgumentParser("liverseg")
-    parser.add_argument("--use_gpu", action="store_true", default=False, help="用GPU推理")
-    parser.add_argument("--batch_size", type=int, default=32, help="推理过程中的batch size")
-    parser.add_argument("--type", type=str, default="liver", help="针对一个type有一套pipline和权重路径")
-    parser.add_argument("--interp", action="store_true", default=False, help="是否对数据进行插值，用于z方向网络")
-    parser.add_argument("--filter", action="store_true", default=False, help="是否过滤最大联通块")
-
+    parser = argparse.ArgumentParser(description="预测")
+    parser.add_argument("-c", "--cfg_file", type=str, help="配置文件路径")
+    parser.add_argument("--use_gpu", action="store_true", default=False, help="使用GPU推理")
+    parser.add_argument("opts", nargs=argparse.REMAINDER)
     args = parser.parse_args()
-    return args
+
+    if args.cfg_file is not None:
+        cfg.update_from_file(args.cfg_file)
+    if args.opts:
+        cfg.update_from_list(args.opts)
+    if args.use_gpu:  # 命令行参数只能从false改成true，不能声明false
+        cfg.TRAIN.USE_GPU = True
+
+    cfg.set_immutable(True)
 
 
 def main():
-    args = parse_args()
-    use_cuda = args.use_gpu
-    place = fluid.CUDAPlace(0) if use_cuda else fluid.CPUPlace()
-    exe = fluid.Executor(place)
+    places = fluid.CUDAPlace(0) if cfg.TRAIN.USE_GPU else fluid.CPUPlace()
+    exe = fluid.Executor(places)
 
-    infer_exe = fluid.Executor(place)
+    infer_exe = fluid.Executor(places)
     inference_scope = fluid.core.Scope()
 
-    if args.type == "liver":
-        infer_param_path = "/home/aistudio/data/weights/liver/inf"
-    elif args.type == "tumor":
-        infer_param_path = "/home/aistudio/data/weights/tumor/inf"
-    else:
-        raise Exception("错误的前景类别")
-
-    if not os.path.exists(inference_label_path):
-        os.makedirs(inference_label_path)
+    if not os.path.exists(cfg.INFER.PATH.OUTPUT):
+        os.makedirs(cfg.INFER.PATH.OUTPUT)
 
     with fluid.scope_guard(inference_scope):
-        [inference_program, feed_target_names, fetch_targets] = fluid.io.load_inference_model(infer_param_path, infer_exe)
+        [inference_program, feed_target_names, fetch_targets] = fluid.io.load_inference_model(
+            cfg.INFER.PATH.PARAM, infer_exe
+        )
 
-        inf_volumes = os.listdir(inference_path)
+        inf_volumes = os.listdir(cfg.INFER.PATH.INPUT)
         for inf_volume in tqdm(inf_volumes, position=0):
             total_time = 0
             read_time = 0
@@ -60,24 +59,28 @@ def main():
 
             total_time = time.time()
 
-            inf_path = os.path.join(inference_path, inf_volume)
+            inf_path = os.path.join(cfg.INFER.PATH.INPUT, inf_volume)
 
             read_time = time.time()
             volf = nib.load(inf_path)
             volume = np.array(volf.get_fdata())
-            volume = windowlize_image(volume, 200, 70)
-            if args.interp:
+            if cfg.INFER.WINDOWLIZE:
+                volume = util.windowlize_image(volume, cfg.INFER.WWWC)
+            if cfg.INFER.DO_INTERP:
                 header = volf.header.structarr
-                spacing = [1, 1, 1]
-                pixdim = [header["pixdim"][1], header["pixdim"][2], header["pixdim"][3]]  # pixdim 是这张 ct 三个维度的间距
+                # pixdim 是这套 ct 三个维度的间距
+                pixdim = [header["pixdim"][ind] for ind in range(1, 4)]
+                spacing = list(cfg.INFER.SPACING)
+                for ind in range(3):
+                    if spacing[ind] == -1:
+                        spacing[ind] = pixdim[ind]
                 ratio = [pixdim[0] / spacing[0], pixdim[1] / spacing[1], pixdim[2] / spacing[2]]
-                ratio = [1, 1, ratio[2]]
                 volume = scipy.ndimage.interpolation.zoom(volume, ratio, order=3)
 
             inference = np.zeros(volume.shape)
             read_time = time.time() - read_time
 
-            batch_size = args.batch_size
+            batch_size = cfg.INFER.BATCH_SIZE
             ind = 0
             flag = True
             pbar = tqdm(total=volume.shape[2] - 2, position=1, leave=False)
@@ -89,7 +92,11 @@ def main():
                     ind = ind + 1
                     pbar.update(1)
                     data = volume[:, :, ind - 1 : ind + 2]
-                    data = data.swapaxes(0, 2).reshape([3, data.shape[1], data.shape[0]]).astype("float32")
+                    data = (
+                        data.swapaxes(0, 2)
+                        .reshape([3, data.shape[1], data.shape[0]])
+                        .astype("float32")
+                    )
                     batch_data.append(data)
 
                     if ind == volume.shape[2] - 2:
@@ -101,7 +108,11 @@ def main():
                 read_time += toc - tic
 
                 tic = time.time()
-                result = infer_exe.run(inference_program, feed={feed_target_names[0]: batch_data}, fetch_list=fetch_targets)
+                result = infer_exe.run(
+                    inference_program,
+                    feed={feed_target_names[0]: batch_data},
+                    fetch_list=fetch_targets,
+                )
                 toc = time.time()
                 inf_time += toc - tic
 
@@ -115,28 +126,25 @@ def main():
                     resp = resp.swapaxes(0, 1)
                     inference[:, :, ii] = resp
                     ii = ii - 1
-                # result = result * 255
-                # cv2.imwrite("result.png",result)
 
                 toc = time.time()
                 post_time += toc - tic
-            if args.filter:
-                inference = filter_largest_volume(inference)
-            # inference[30:60, 30:60, 30:60] = 2
-            if args.interp:
+
+            inference[inference >= cfg.INFER.THRESH] = 1
+            inference[inference < cfg.INFER.THRESH] = 0
+            if cfg.INFER.FILTER_LARGES:
+                inference = util.filter_largest_volume(inference)
+            if cfg.INFER.DO_INTERP:
                 ratio = [1 / x for x in ratio]
                 inference = scipy.ndimage.interpolation.zoom(inference, ratio, order=3)
-
-            inference[inference >= 0.9] = 1
-            inference[inference < 0.9] = 0
-            if args.type == "tumor":
-                inference = inference * 2
 
             inference = inference.astype("int8")
             assert inference.size == volume.size, "预测输出大小和输入数据大小不同"
             write_time = time.time()
             inference_file = nib.Nifti1Image(inference, volf.affine)
-            inferece_path = os.path.join(inference_label_path, inf_volume).replace("volume", "segmentation")
+            inferece_path = os.path.join(cfg.INFER.PATH.OUTPUT, inf_volume).replace(
+                "volume", "segmentation"
+            )
             nib.save(inference_file, inferece_path)
             write_time = time.time() - write_time
 
@@ -153,5 +161,5 @@ def main():
 
 
 if __name__ == "__main__":
-    args = parse_args()
+    parse_args()
     main()
