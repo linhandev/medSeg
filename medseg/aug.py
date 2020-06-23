@@ -23,7 +23,7 @@ def flip(volume, label=None, chance=(0, 0, 0)):
     Parameters
     ----------
     volume : type
-        Description of parameter `volume`.
+        Description of parameter `volume`.wc - ww / 2
     label : type
         Description of parameter `label`.
     chance : type
@@ -141,9 +141,10 @@ def crop(volume, label=None, size=[3, 512, 512], pad_value=0):
     return volume
 
 
-# TODO: 将增强全流程放进一个函数
-
-# 随机添加噪声
+# TODO: 实现弹性形变
+# TODO: 增加随机噪音的增强
+# TODO: 增加图片随机组合的增强
+# TODO: 全部流程放进一个函数
 
 # cat = skimage.io.imread("~/Desktop/cat.jpg")
 # plt.imshow(cat)

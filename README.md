@@ -41,12 +41,12 @@ python medseg/preprocess.py -c config/lits.yaml
 ### 训练
 网络用预处理后的数据进行训练，训练提供一些参数，可以查看代码或者 -h 显示。如果用的是cpu版本的paddle，use_gpu设成 False。
 ```shell
-python medseg/train.py -c config/lits.yaml --use_gpu
+python medseg/train.py -c config/lits.yaml --use_gpu --do_eval
 ```
 ### 预测
 最后一步是用训练好的网络进行预测，模型权重的路径在代码中，按照上一步实际输出的路径进行修改。代码会读取inference路径下所有的nii逐个进行预测。目前支持的数据格式有 .nii, .nii.gz。
 ```shell
-python infer.py -c config/lits.yaml --use_gpu = True
+python infer.py -c config/lits.yaml --use_gpu
 ```
 <br>
 

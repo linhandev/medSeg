@@ -48,7 +48,7 @@ def main():
     if os.path.exists(cfg.DATA.SUMMARY_FILE) and os.path.getsize(cfg.DATA.SUMMARY_FILE) != 0:
         os.remove(cfg.DATA.SUMMARY_FILE)
 
-    volumes = util.listdir(cfg.DATA.VOLUMES_PATH)
+    volumes = util.listdir(cfg.DATA.INPUTS_PATH)
     labels = util.listdir(cfg.DATA.LABELS_PATH)
 
     vol_npz = []
@@ -62,7 +62,7 @@ def main():
 
         print(volumes[i], labels[i])
 
-        volf = nib.load(os.path.join(cfg.DATA.VOLUMES_PATH, volumes[i]))
+        volf = nib.load(os.path.join(cfg.DATA.INPUTS_PATH, volumes[i]))
         labf = nib.load(os.path.join(cfg.DATA.LABELS_PATH, labels[i]))
 
         util.save_info(volumes[i], volf.header, cfg.DATA.SUMMARY_FILE)
@@ -126,7 +126,9 @@ def main():
                     lab_npz.append(lab.copy())
                     print("{}片满足，当前共{}".format(frame, len(vol_npz)))
 
-                    if len(vol_npz) == cfg.PREP.BATCH_SIZE:
+                    if len(vol_npz) == cfg.PREP.BATCH_SIZE or (
+                        i == (len(labels) - 1) and frame == volume.shape[2] - 1
+                    ):
                         vols = np.array(vol_npz)
                         labs = np.array(lab_npz)
                         print(vols.shape)
@@ -136,7 +138,7 @@ def main():
                             cfg.DATA.NAME, cfg.PREP.PLANE, cfg.PREP.FRONT, npz_count
                         )
                         file_path = os.path.join(cfg.DATA.PREP_PATH, file_name)
-                        np.savez(file_path, vols=vols, labs=labs)
+                        np.savez(file_path, imgs=imgs, labs=labs)
                         vol_npz = []
                         lab_npz = []
                         npz_count += 1

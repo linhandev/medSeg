@@ -1,0 +1,5 @@
+DATA:
+  NAME: "optic"
+  INPUTS_PATH: "/home/aistudio/optic/image"
+  LABELS_PATH: "/home/aistudio/optic/label"
+  PREP_PATH: "/home/aistudio/optic/prep"

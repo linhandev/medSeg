@@ -130,7 +130,19 @@ def clip_label(label, category):
 
 
 def get_bbs(label):
-    # 获取一个体中所有为1的区域的bb，返回两个列表，分别是多个前景最小和最大的下标，最大的是+1的
+    """求一个标签中所有前景的bb.
+
+    Parameters
+    ----------
+    label : ndarray
+        标签.
+
+    Returns
+    -------
+    list
+        list中每一个前景区域一个[bb_min, bb_max]，分别是这个前景块bb低和高两个角的坐标.
+
+    """
     # TODO: 目前实现了一个病灶，需要实现多个
     one_indexes = np.array(np.where(label == 1))
     if one_indexes.ndim == 0:
@@ -142,7 +154,25 @@ def get_bbs(label):
     return bb_min.reshape(-1, 3), bb_max.reshape(-1, 3)
 
 
-def crop_to_bbs(volume, bb_min, bb_max, padding=0.3):
+def crop_to_bbs(volume, bbs, padding=0.3):
+    """将一个扫描的背景mute掉，只留下前景及其周围的区域，支持多个前景块.
+    具体做法是创建一个mask，对于bbs中的每个前景块，计算中心位置，按照padding计算保留的块范围(不会超出volume)，在mask中设成1。所有块都计算完之后mute掉mask中还是0的所有位置
+    Parameters
+    ----------
+    volume : ndarray
+        扫描.
+    bbs : list
+        [[bb_min, bb_max], [bb_min, bb_max], ...].
+    padding :
+        Description of parameter `padding`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
+
     # 将一个体切成一个或者多个包含1的区域的bb
     # padding 值是在各个维度上向大和小分别拓展多大的视野，一个数就是都一样，列表可以让不同维度不一样
     pd = padding
@@ -255,24 +285,18 @@ def filter_largest_volume(label):
 
     """
     is_batch = False if label.ndim == 3 else True
-    print(is_batch)
     if label.ndim == 3:
         label = label[np.newaxis, :, :, :]
 
     for ind in range(label.shape[0]):
         vol, num = ndimage.label(label[ind], np.ones([3, 3, 3]))
-        print(vol.dtype)
-        print(label[ind].shape)
-        print("connected num", num)
         maxi = 0
         maxnum = 0
         for i in range(1, num + 1):
             count = vol[vol == i].size
-            print("count", count)
             if count > maxnum:
                 maxi = i
                 maxnum = count
-        print("maxi", maxi)
 
         vol[vol != maxi] = 0
         vol[vol == maxi] = 1
@@ -284,6 +308,23 @@ def filter_largest_volume(label):
 
 # vol = np.array([[[0, 0, 1, 0], [0, 0, 0, 0], [0, 1, 1, 0]]])
 # print(filter_largest_volume(vol))
+
+
+def filter_largest_bb(label):
+    """求最大的连通块bb范围，去掉范围外的所有fp。比只保留最大的连通块更保守.
+
+    Parameters
+    ----------
+    label : ndarray
+        分割标签，前景为1.
+
+    Returns
+    -------
+    type
+        经过处理的标签.
+
+    """
+    pass
 
 
 def save_nii(vol, lab, name="test"):

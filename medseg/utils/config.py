@@ -133,15 +133,20 @@ cfg = PjConfig()
 """数据集配置"""
 # 数据集名称
 cfg.DATA.NAME = "lits"
-cfg.DATA.VOLUMES_PATH = "/home/aistudio/data/volume"
+# 输入的2D或3D图像路径
+cfg.DATA.INPUTS_PATH = "/home/aistudio/data/volume"
+# 标签路径
 cfg.DATA.LABELS_PATH = "/home/aistudio/data/label"
+# 预处理输出npz路径
 cfg.DATA.PREP_PATH = "/home/aistudio/data/preprocess"
 # z 方向初始化可以指定一个独立的输出文件路径
 cfg.DATA.Z_PREP_PATH = cfg.DATA.PREP_PATH
+# 预处理过程中数据信息写到这个文件
 cfg.DATA.SUMMARY_FILE = "./{}.csv".format(cfg.DATA.NAME)
 
 """ 预处理配置 """
-cfg.PREP.PLANE = "xy"  # 预处理进行的平面
+# 预处理进行的平面
+cfg.PREP.PLANE = "xy"
 # 处理过程中所有比这个数字大的标签都设为前景
 cfg.PREP.FRONT = 1
 # 是否将数据只 crop 到前景
@@ -150,8 +155,10 @@ cfg.PREP.CROP = False
 cfg.PREP.INTERP = False
 # 进行插值的话目标片间间隔是多少，单位mm，-1的维度不会进行插值
 cfg.PREP.INTERP_PIXDIM = (-1, -1, 1.0)
-cfg.PREP.WINDOW = False  # 是否进行窗口化
-cfg.PREP.WWWC = (180, 50)  # 窗宽窗位
+# 是否进行窗口化，在预处理阶段不建议做，灵活性太低
+cfg.PREP.WINDOW = False
+# 窗宽窗位
+cfg.PREP.WWWC = (400, 50)
 # 丢弃前景数量少于thresh的slice
 cfg.PREP.THRESH = 256
 # 3D的数据在开始切割之前pad到这个大小，-1的维度会放着不动
@@ -163,36 +170,60 @@ cfg.PREP.BATCH_SIZE = 128  # 可以先跑bs=1，看看一对数据多大
 cfg.TRAIN.DATA_PATH = "/home/aistudio/data/preprocess"
 # 训练数据的数量，用来显示训练进度条和时间估计，如果不知道有多少写-1
 cfg.TRAIN.DATA_COUNT = -1
+# 预训练权重路径，如果没有写空，有的话会尝试加载
 cfg.TRAIN.PRETRAINED_WEIGHT = ""
+# 预测裁剪模型保存路径
 cfg.TRAIN.INF_MODEL_PATH = "./model/lits/inf"
+# 可以继续训练的ckpt模型保存路径
 cfg.TRAIN.CKPT_MODEL_PATH = "./model/lits/ckpt"
+# 效果最好的模型保存路径
 cfg.TRAIN.BEST_MODEL_PATH = "./model/lits/best"
-
-cfg.TRAIN.BATCH_SIZE = 16
+# 训练过程中用的batch_size
+cfg.TRAIN.BATCH_SIZE = 32
+# 共训练多少个epoch
 cfg.TRAIN.EPOCHS = 20
-cfg.TRAIN.ARCHITECTURE = "unet_base"
-
-cfg.TRAIN.USE_GPU = True
+# 使用的模型结构
+cfg.TRAIN.ARCHITECTURE = "res_unet"
+# 使用的正则化方法，支持L1，L2，其他一切值都是不加正则化
+cfg.TRAIN.REG_TYPE = "L1"
+# 正则化的权重
+cfg.TRAIN.REG_COEFF = 1e-6
+# 梯度下降方法
+cfg.TRAIN.OPTIMIZER = "adam"
+# 学习率
+cfg.TRAIN.LR = 0.003
+# 是否使用GPU进行训练
+cfg.TRAIN.USE_GPU = False
 # 进行验证
-cfg.TRAIN.DO_EVAL = True
+cfg.TRAIN.DO_EVAL = False
 # 每 snapchost_epoch做一次eval并保存模型
-cfg.TRAIN.SNAPSHOT_BATCH = 1000
+cfg.TRAIN.SNAPSHOT_BATCH = 500
 # VDL log路径
 cfg.TRAIN.VDL_LOG = "/home/aistudio/log"
+
+""" HRNET 设置"""
+# HRNET STAGE2 设置
+cfg.MODEL.HRNET.STAGE2.NUM_MODULES = 1
+cfg.MODEL.HRNET.STAGE2.NUM_CHANNELS = [40, 80]
+# HRNET STAGE3 设置
+cfg.MODEL.HRNET.STAGE3.NUM_MODULES = 4
+cfg.MODEL.HRNET.STAGE3.NUM_CHANNELS = [40, 80, 160]
+# HRNET STAGE4 设置
+cfg.MODEL.HRNET.STAGE4.NUM_MODULES = 3
+cfg.MODEL.HRNET.STAGE4.NUM_CHANNELS = [40, 80, 160, 320]
 
 """数据增强"""
 cfg.AUG.WINDOWLIZE = True
 cfg.AUG.WWWC = cfg.PREP.WWWC
-# 不单独为增强操作设做不做的config，不想做概率设成 0
-# 注意CWH
-# 每个维度进行翻转增强的概率
-cfg.AUG.FLIP.RATIO = (0, 0, 0.5)
+# 不单独为增强操作设做不做的config，不想做概率设成 0，注意CWH
+# 每个维度进行翻转增强的概率，CWH
+cfg.AUG.FLIP.RATIO = (0, 0, 0)
 # 进行旋转增强的概率
-cfg.AUG.ROTATE.RATIO = (0, 0.5, 0)
+cfg.AUG.ROTATE.RATIO = (0, 0, 0)
 # 旋转的角度范围，单位度
 cfg.AUG.ROTATE.RANGE = (0, (-15, 15), 0)
 # 进行缩放的概率
-cfg.AUG.ZOOM.RATIO = (0, 0.3, 0.3)
+cfg.AUG.ZOOM.RATIO = (0, 0, 0)
 # 进行缩放的比例
 cfg.AUG.ZOOM.RANGE = ((1, 1), (0.8, 1), (0.8, 1))
 # 进行随机crop的目标大小
@@ -205,7 +236,6 @@ cfg.INFER.PATH.INPUT = "/home/aistudio/data/inference"
 cfg.INFER.PATH.OUTPUT = "/home/aistudio/data/infer_lab"
 # 推理的模型权重路径
 cfg.INFER.PATH.PARAM = "/home/aistudio/weight/liver/inf"
-
 # 是否使用GPU进行推理
 cfg.INFER.USE_GPU = False
 # 推理过程中的 batch_size
@@ -225,13 +255,23 @@ cfg.INFER.THRESH = 0.5
 
 """ 测试配置 """
 # 分割结果的路径
-cfg.EVAL.PATH.RESULT = "/home/aistudio/data/infer_lab"
+cfg.EVAL.PATH.SEG = "/home/aistudio/data/infer_lab"
 # 分割GT标签的路径
 cfg.EVAL.PATH.GT = "/home/aistudio/data/eval_lab"
+# 评估结果存储的文件
+cfg.EVAL.PATH.RESULT = "./eval/lits"
 # 测试过程中要计算的指标，包括
 # FP，FN，TP，TN(绝对数量)
 # Precision,Recall/Sensitivity,Specificity,Accuracy,Kappa
 # Dice,IOU/VOE
-cfg.EVAL.METRICS = ["IOU"]
-
-# print(cfg.EVAL.METRICS)
+cfg.EVAL.METRICS = [
+    "IOU",
+    "Dice",
+    "TP",
+    "TN",
+    "Precision",
+    "Recall",
+    "Sensitivity",
+    "Specificity",
+    "Accuracy",
+]
