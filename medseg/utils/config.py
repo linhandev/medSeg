@@ -164,7 +164,8 @@ cfg.PREP.THRESH = 256
 # 3D的数据在开始切割之前pad到这个大小，-1的维度会放着不动
 cfg.PREP.SIZE = (512, 512, -1)
 # 预处理过程中多少组数据组成一个npz文件
-cfg.PREP.BATCH_SIZE = 128  # 可以先跑bs=1，看看一对数据多大
+# 可以先跑bs=1，看看一对数据多大；尽量至少将训练数据分入10个npz，否则分训练和验证集的时候会很不准
+cfg.PREP.BATCH_SIZE = 128
 
 """训练配置"""
 cfg.TRAIN.DATA_PATH = "/home/aistudio/data/preprocess"
@@ -178,6 +179,8 @@ cfg.TRAIN.INF_MODEL_PATH = "./model/lits/inf"
 cfg.TRAIN.CKPT_MODEL_PATH = "./model/lits/ckpt"
 # 效果最好的模型保存路径
 cfg.TRAIN.BEST_MODEL_PATH = "./model/lits/best"
+# 训练过程中输入图像大小，不加channel
+cfg.TRAIN.INPUT_SIZE = (512, 512)
 # 训练过程中用的batch_size
 cfg.TRAIN.BATCH_SIZE = 32
 # 共训练多少个epoch
@@ -196,8 +199,10 @@ cfg.TRAIN.LR = 0.003
 cfg.TRAIN.USE_GPU = False
 # 进行验证
 cfg.TRAIN.DO_EVAL = False
-# 每 snapchost_epoch做一次eval并保存模型
+# 每 snapchost_epoch 做一次eval并保存模型
 cfg.TRAIN.SNAPSHOT_BATCH = 500
+# 每 disp_epoch 打出一次训练过程
+cfg.TRAIN.DISP_BATCH = 10
 # VDL log路径
 cfg.TRAIN.VDL_LOG = "/home/aistudio/log"
 
@@ -221,11 +226,11 @@ cfg.AUG.FLIP.RATIO = (0, 0, 0)
 # 进行旋转增强的概率
 cfg.AUG.ROTATE.RATIO = (0, 0, 0)
 # 旋转的角度范围，单位度
-cfg.AUG.ROTATE.RANGE = (0, (-15, 15), 0)
+cfg.AUG.ROTATE.RANGE = (0, (0, 0), 0)
 # 进行缩放的概率
 cfg.AUG.ZOOM.RATIO = (0, 0, 0)
 # 进行缩放的比例
-cfg.AUG.ZOOM.RANGE = ((1, 1), (0.8, 1), (0.8, 1))
+cfg.AUG.ZOOM.RANGE = ((1, 1), (1, 1), (1, 1))
 # 进行随机crop的目标大小
 cfg.AUG.CROP.SIZE = (3, 512, 512)
 

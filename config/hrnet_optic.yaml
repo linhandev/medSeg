@@ -4,7 +4,7 @@ DATA:
   LABELS_PATH: "/home/aistudio/optic/label"
   PREP_PATH: "/home/aistudio/optic/prep"
 TRAIN:
-  ARCHITECTURE: "res_unet"
+  ARCHITECTURE: "hrnet"
   BATCH_SIZE: 8
   SNAPSHOT_BATCH: 30
   DISP_BATCH: 1

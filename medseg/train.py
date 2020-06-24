@@ -8,7 +8,6 @@ import random
 import math
 import numpy as np
 from datetime import datetime
-
 from tqdm.auto import tqdm
 
 
@@ -19,12 +18,9 @@ from visualdl import LogWriter
 
 import utils.util as util
 from utils.config import cfg
-from models.unet_base import unet_base
-from models.unet_simple import unet_simple
-from models.deeplabv3p import deeplabv3p
-from models.hrnet import hrnet
 import loss
 import aug
+from models.model import create_model
 
 
 def parse_args():
@@ -49,6 +45,7 @@ def parse_args():
 
 def data_reader(part_start=0, part_end=8, is_test=False):
     npz_names = util.listdir(cfg.TRAIN.DATA_PATH)
+    # NOTE: 这种分法效率高好写，但是在npz很少的时候分得不准。小数据集预处理尽量组小的batch
     npz_part = npz_names[
         int(len(npz_names) * part_start / 10) : int(len(npz_names) * part_end / 10)
     ]
@@ -60,7 +57,7 @@ def data_reader(part_start=0, part_end=8, is_test=False):
             pbar = tqdm(total=cfg.TRAIN.DATA_COUNT, desc="训练进度")
         for npz_name in npz_part:
             data = np.load(os.path.join(cfg.TRAIN.DATA_PATH, npz_name))
-            imgs = data["imgs"]
+            imgs = data["vols"]
             labs = data["labs"]
             if cfg.AUG.WINDOWLIZE:
                 imgs = util.windowlize_image(imgs, cfg.AUG.WWWC)  # 肝脏常用
@@ -103,38 +100,25 @@ def main():
             use_double_buffer=True,
         )
         # OPTIMIZE: 这里考虑换形式，dict的话每一个东西都会被调用，比如每个网络都会构建，这样很大浪费
-        # models = {
-        #     "unet_simple": unet_simple(volume, 2, [512, 512]),
-        #     "res_unet": unet_base(volume, 2, [512, 512]),
-        #     "deeplabv3": deeplabv3p(volume, 2),
-        #     "hrnet": hrnet(volume, 2),
-        # }
-        # try:
-        #     prediction = models[cfg.TRAIN.ARCHITECTURE]
-        # except KeyError:
-        #     raise Exception("错误的网络结构: {}".format(cfg.TRAIN.ARCHITECTURE))
-        prediction = unet_base(image, 2, [512, 512])
+        prediction = create_model(image, 2)
         avg_loss = loss.create_loss(prediction, label, 2)
         miou = loss.mean_iou(prediction, label, 2)
 
-        decays = {
-            "L1": paddle.fluid.regularizer.L1Decay(cfg.TRAIN.REG_COEFF),
-            "L2": paddle.fluid.regularizer.L2Decay(cfg.TRAIN.REG_COEFF),
-        }
-        try:
-            decay = decays[cfg.TRAIN.REG_TYPE]
-        except:
+        # 进行正则化
+        if cfg.TRAIN.REG_TYPE == "L1":
+            decay = paddle.fluid.regularizer.L1Decay(cfg.TRAIN.REG_COEFF)
+        elif cfg.TRAIN.REG_TYPE == "L2":
+            decay = paddle.fluid.regularizer.L2Decay(cfg.TRAIN.REG_COEFF)
+        else:
             decay = None
 
-        optimizers = {
-            "adam": fluid.optimizer.AdamOptimizer(learning_rate=0.003, regularization=decay),
-            "sgd": fluid.optimizer.SGDOptimizer(learning_rate=0.003, regularization=decay),
-        }
-        try:
-            optimizer = optimizers[cfg.TRAIN.OPTIMIZER]
-        except:
+        # 选择优化器
+        if cfg.TRAIN.OPTIMIZER == "adam":
+            optimizer = fluid.optimizer.AdamOptimizer(learning_rate=0.003, regularization=decay)
+        elif cfg.TRAIN.OPTIMIZER == "sgd":
+            optimizer = fluid.optimizer.SGDOptimizer(learning_rate=0.003, regularization=decay)
+        else:
             raise Exception("错误的优化器类型: {}".format(cfg.TRAIN.OPTIMIZER))
-
         optimizer.minimize(avg_loss)
 
     places = fluid.CUDAPlace(0) if cfg.TRAIN.USE_GPU else fluid.CPUPlace()
@@ -168,7 +152,7 @@ def main():
             )
             writer.add_scalar(tag="train_loss", step=step, value=avg_loss_value[0])
             writer.add_scalar(tag="train_miou", step=step, value=miou_value[0])
-            if step % 10 == 0:
+            if step % cfg.TRAIN.DISP_BATCH == 0:
                 print(
                     "\tTrain pass {}, Step {}, Cost {}, Miou {}".format(
                         pass_id, step, avg_loss_value[0], miou_value[0]

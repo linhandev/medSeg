@@ -1,0 +1,12 @@
+DATA:
+  NAME: "lits"
+  PREP_PATH: "/home/aistudio/optic/prep"
+TRAIN:
+  ARCHITECTURE: "res_unet"
+  BATCH_SIZE: 16
+  SNAPSHOT_BATCH: 500
+  DISP_BATCH: 10
+AUG:
+  ROTATE:
+    RATIO: (0, 0.3, 0)
+    RANGE: (0,(-10,10),0)
