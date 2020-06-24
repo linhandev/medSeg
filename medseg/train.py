@@ -176,7 +176,7 @@ def main():
 
                 eval_miou = np.average(np.array(test_mious))
                 writer.add_scalar(
-                    tag="test_loss", step=step, value=np.average(np.array(test_losses)),
+                    tag="test_miou", step=step, value=eval_miou,
                 )
                 print(
                     "Test loss: {} ,miou: {}".format(np.average(np.array(test_losses)), eval_miou)

@@ -11,6 +11,18 @@ import matplotlib.pyplot as plt
 import train
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="数据预处理")
+    parser.add_argument("-c", "--cfg_file", type=str, help="配置文件路径")
+    parser.add_argument("opts", nargs=argparse.REMAINDER)
+    args = parser.parse_args()
+
+    if args.cfg_file is not None:
+        cfg.update_from_file(args.cfg_file)
+    if args.opts:
+        cfg.update_from_list(args.opts)
+
+
 def show_slice(vol, lab):
     """展示一个2.5D的数据对.
 
@@ -97,4 +109,5 @@ def show_aug():
 if __name__ == "__main__":
     # show_nii()
     # show_npz()
+    parse_args()
     show_aug()
