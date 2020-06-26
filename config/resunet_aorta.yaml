@@ -1,0 +1,24 @@
+DATA:
+  NAME: "lits"
+  INPUTS_PATH: "/home/aistudio/data/volume"
+  LABELS_PATH: "/home/aistudio/data/label"
+  PREP_PATH: "/home/aistudio/data/preprocess"
+PREP:
+  FRONT: 1
+  WINDOW: False
+  CROP: False
+  THRESH: 128
+  SIZE: (512, 512, -1)
+  BATCH_SIZE: 16
+TRAIN:
+  ARCHITECTURE: "res_unet"
+  BATCH_SIZE: 30
+  SNAPSHOT_BATCH: 300
+  DISP_BATCH: 10
+
+AUG:
+  ROTATE:
+    RATIO: (0, 0.3, 0)
+    RANGE: (0,(-10,10),0)
+  WINDOWLIZE: True
+  WWWC: (400, 0)

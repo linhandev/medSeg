@@ -1,12 +1,43 @@
 DATA:
   NAME: "lits"
-  PREP_PATH: "/home/aistudio/optic/prep"
+  INPUTS_PATH: "/home/aistudio/data/volume"
+  LABELS_PATH: "/home/aistudio/data/label"
+  PREP_PATH: "/home/aistudio/data/preprocess"
+PREP:
+  FRONT: 1
+  WINDOW: False
+  CROP: False
+  THRESH: 128
+  SIZE: (512, 512, -1)
+  BATCH_SIZE: 16
 TRAIN:
   ARCHITECTURE: "res_unet"
-  BATCH_SIZE: 16
-  SNAPSHOT_BATCH: 500
-  DISP_BATCH: 10
+  BATCH_SIZE: 30
+  SNAPSHOT_BATCH: 50
+  DISP_BATCH: 1
 AUG:
   ROTATE:
     RATIO: (0, 0.3, 0)
     RANGE: (0,(-10,10),0)
+  WINDOWLIZE: False
+INFER:
+  PATH:
+    INPUT: "/home/aistudio/data/inference"
+    OUTPUT: "/home/aistudio/data/infer_lab"
+    PARAM: "/home/aistudio/param/liver_inf"
+  BATCH_SIZE: 196
+EVAL:
+  PATH:
+    SEG: "/home/aistudio/data/infer_lab"
+    GT: "/home/aistudio/data/label"
+  METRICS: [
+      "IOU",
+      "Dice",
+      "TP",
+      "TN",
+      "Precision",
+      "Recall",
+      "Sensitivity",
+      "Specificity",
+      "Accuracy",
+    ]

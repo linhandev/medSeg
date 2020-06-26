@@ -6,24 +6,29 @@
 # 5. 所有的函数的默认参数都是调用不做任何变化
 
 import random
-import cv2
-import matplotlib.pyplot as plt
-import scipy.ndimage
-import skimage.io
-from utils.util import pad_volume
 import math
 import time
+
+import cv2
+import numpy as np
+from scipy.ndimage.interpolation import map_coordinates
+from scipy.ndimage.filters import gaussian_filter
+import scipy.ndimage
+import matplotlib.pyplot as plt
+import skimage.io
+
+from utils.util import pad_volume
 
 random.seed(time.time())
 
 
 def flip(volume, label=None, chance=(0, 0, 0)):
-    """Short summary.
+    """.
 
     Parameters
     ----------
     volume : type
-        Description of parameter `volume`.wc - ww / 2
+        Description of parameter `volume`.
     label : type
         Description of parameter `label`.
     chance : type
@@ -127,7 +132,7 @@ def crop(volume, label=None, size=[3, 512, 512], pad_value=0):
             if s == 1:  # 是1的维度都不动
                 lab_size[ind] = -1
         label = pad_volume(label, lab_size, 0, False)
-    # 2.随机一个裁剪范围起点，之后进行裁剪
+    # 2.随机一个裁剪范围起点，之后进行crop裁剪
     crop_low = [int(random.random() * (x - y)) for x, y in zip(volume.shape, size)]
     r = [[l, l + s] for l, s in zip(crop_low, size)]
     volume = volume[r[0][0] : r[0][1], r[1][0] : r[1][1], r[2][0] : r[2][1]]
@@ -141,25 +146,78 @@ def crop(volume, label=None, size=[3, 512, 512], pad_value=0):
     return volume
 
 
+def elastic_transform(image, alpha, sigma, random_state=None):
+    if random_state is None:
+        random_state = np.random.RandomState(None)
+    shape = image.shape
+    print("randomstate", random_state.rand(*shape) * 2 - 1, "end")
+    dx = (
+        gaussian_filter((random_state.rand(*shape) * 2 - 1), sigma, mode="constant", cval=0) * alpha
+    )
+    print(dx.shape)
+    dy = (
+        gaussian_filter((random_state.rand(*shape) * 2 - 1), sigma, mode="constant", cval=0) * alpha
+    )
+    dz = np.zeros_like(dx)
+
+    x, y, z = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]), np.arange(shape[2]))
+    indices = np.reshape(y + dy, (-1, 1)), np.reshape(x + dx, (-1, 1)), np.reshape(z, (-1, 1))
+
+    distored_image = map_coordinates(image, indices, order=1, mode="reflect")
+    return distored_image.reshape(image.shape)
+
+
 # TODO: 实现弹性形变
 # TODO: 增加随机噪音的增强
 # TODO: 增加图片随机组合的增强
 # TODO: 全部流程放进一个函数
 
 # cat = skimage.io.imread("~/Desktop/cat.jpg")
+# checker = skimage.io.imread("~/Desktop/checker.png")
+# img = np.ones([10, 10])
+#
+# img[0:5, 0:5] = 0
+#
+#
 # plt.imshow(cat)
 # plt.show()
-#
-# print(cat.shape)
+# if img.ndim == 2:
+#     img = img[:, :, np.newaxis]
+
+# print(img.shape)
 # img, lab = flip(cat, cat, (1, 1, 0))
-# img, lab = rotate(cat, cat, ([-45, 45], 0, [0, 0]), (1, 0, 0))
-# img, lab = zoom(cat, cat, [(0.2, 0.3), (0.7, 0.8), (0.9, 1)], (0.5, 1, 0))
-# print(cat.shape)
-# img, label = crop(cat, cat, [700, 500, 1])
-#
 # plt.imshow(img)
 # plt.show()
 #
+# img, lab = rotate(cat, cat, ([-45, 45], 0, [0, 0]), (1, 0, 0))
+# plt.imshow(img)
+# plt.show()
+#
+# img, lab = zoom(cat, cat, [(0.2, 0.3), (0.7, 0.8), (0.9, 1)], (0.5, 1, 0))
+# plt.imshow(img)
+# plt.show()
+
+# print(cat.shape)
+# img, label = crop(cat, cat, [400, 500, 3])
+# plt.imshow(img)
+# plt.show()
+#
+# plt.imshow(checker)
+# plt.show()
+# checker = checker[:, :, np.newaxis]
+# img = crop(cat, None, [512, 512, 3])
+# img = elastic_transform(checker, 900, 8)
+# img = img.reshape(img.shape[0], img.shape[1])
+# plt.imshow(img)
+# plt.show()
+
+#
+# print(img)
+# if img.shape[2] == 1:
+#     img = img.reshape(img.shape[0], img.shape[1])
+# plt.imshow(img)
+# plt.show()
+
 # plt.imshow(lab)
 # plt.show()
 

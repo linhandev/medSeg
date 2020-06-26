@@ -190,11 +190,13 @@ cfg.TRAIN.ARCHITECTURE = "res_unet"
 # 使用的正则化方法，支持L1，L2，其他一切值都是不加正则化
 cfg.TRAIN.REG_TYPE = "L1"
 # 正则化的权重
-cfg.TRAIN.REG_COEFF = 1e-6
+cfg.TRAIN.REG_COEFF = 1e-7
 # 梯度下降方法
 cfg.TRAIN.OPTIMIZER = "adam"
 # 学习率
 cfg.TRAIN.LR = 0.003
+# Loss 支持ce，dice，miou，wce，focal
+cfg.TRAIN.LOSS = ["ce", "dice"]
 # 是否使用GPU进行训练
 cfg.TRAIN.USE_GPU = False
 # 进行验证
@@ -218,10 +220,13 @@ cfg.MODEL.HRNET.STAGE4.NUM_MODULES = 3
 cfg.MODEL.HRNET.STAGE4.NUM_CHANNELS = [40, 80, 160, 320]
 
 """数据增强"""
-cfg.AUG.WINDOWLIZE = True
-cfg.AUG.WWWC = cfg.PREP.WWWC
 # 不单独为增强操作设做不做的config，不想做概率设成 0，注意CWH
 # 每个维度进行翻转增强的概率，CWH
+# 是否进行窗口化
+cfg.AUG.WINDOWLIZE = True
+# 窗宽窗位
+cfg.AUG.WWWC = cfg.PREP.WWWC
+# 进行翻转数据增强的概率
 cfg.AUG.FLIP.RATIO = (0, 0, 0)
 # 进行旋转增强的概率
 cfg.AUG.ROTATE.RATIO = (0, 0, 0)
@@ -248,7 +253,7 @@ cfg.INFER.BATCH_SIZE = 128
 # 是否进行窗口化，这个和训练过程中的配置应当相同
 cfg.INFER.WINDOWLIZE = True
 # 窗宽窗位
-cfg.INFER.WWWC = (180, 50)
+cfg.INFER.WWWC = cfg.PREP.WWWC
 # 是否进行插值
 cfg.INFER.DO_INTERP = False
 # 如果进行插值，目标的spacing，-1的维度忽略

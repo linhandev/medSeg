@@ -63,7 +63,9 @@ def main():
         print(volumes[i], labels[i])
 
         volf = nib.load(os.path.join(cfg.DATA.INPUTS_PATH, volumes[i]))
-        labf = nib.load(os.path.join(cfg.DATA.LABELS_PATH, labels[i]))
+        labf = nib.load(
+            os.path.join(cfg.DATA.LABELS_PATH, "segmentation" + volumes[i].lstrip("volume"))
+        )
 
         util.save_info(volumes[i], volf.header, cfg.DATA.SUMMARY_FILE)
 
@@ -124,14 +126,14 @@ def main():
 
                     vol_npz.append(vol.copy())
                     lab_npz.append(lab.copy())
-                    print("{}片满足，当前共{}".format(frame, len(vol_npz)))
+                    print("{} 片满足，当前共 {}".format(frame, len(vol_npz)))
 
                     if len(vol_npz) == cfg.PREP.BATCH_SIZE or (
                         i == (len(labels) - 1) and frame == volume.shape[2] - 1
                     ):
-                        vols = np.array(vol_npz)
+                        imgs = np.array(vol_npz)
                         labs = np.array(lab_npz)
-                        print(vols.shape)
+                        print(imgs.shape)
                         print(labs.shape)
                         print("正在存盘")
                         file_name = "{}_{}_f{}-{}".format(

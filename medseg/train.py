@@ -44,6 +44,7 @@ def parse_args():
 
 
 def data_reader(part_start=0, part_end=8, is_test=False):
+    # TODO: 对数据更好的进行shuffle
     npz_names = util.listdir(cfg.TRAIN.DATA_PATH)
     # NOTE: 这种分法效率高好写，但是在npz很少的时候分得不准。小数据集预处理尽量组小的batch
     npz_part = npz_names[
@@ -57,10 +58,15 @@ def data_reader(part_start=0, part_end=8, is_test=False):
             pbar = tqdm(total=cfg.TRAIN.DATA_COUNT, desc="训练进度")
         for npz_name in npz_part:
             data = np.load(os.path.join(cfg.TRAIN.DATA_PATH, npz_name))
-            imgs = data["vols"]
+            imgs = data["imgs"]
             labs = data["labs"]
+            # assert (
+            #     len(np.where(labs == 1)[0]) + len(np.where(labs == 0)[0]) != labs.size
+            # ), "非法的label数值"
             if cfg.AUG.WINDOWLIZE:
-                imgs = util.windowlize_image(imgs, cfg.AUG.WWWC)  # 肝脏常用
+                imgs = util.windowlize_image(imgs, cfg.AUG.WWWC)
+            else:
+                imgs = util.windowlize_image(imgs, (2048, 0))
             for ind in range(imgs.shape[0]):
                 if cfg.TRAIN.DATA_COUNT != -1:
                     pbar.update()
@@ -132,6 +138,7 @@ def main():
     )
 
     if cfg.TRAIN.PRETRAINED_WEIGHT != "":
+        print("Loading paramaters")
         fluid.io.load_persistables(exe, cfg.TRAIN.PRETRAINED_WEIGHT, train_program)
 
     train_reader = fluid.io.xmap_readers(aug_mapper, data_reader(0, 8), 8, cfg.TRAIN.BATCH_SIZE * 2)

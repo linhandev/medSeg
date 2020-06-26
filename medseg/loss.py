@@ -27,7 +27,9 @@ def weighed_binary_cross_entropy(y, y_predict, beta=2, epsilon=1e-6):
     ylogp = fluid.layers.elementwise_mul(betas, ylogp)
 
     ones = fluid.layers.fill_constant(y_predict.shape, "float32", 1)
-    ylogp = fluid.layers.elementwise_add(ylogp, elementwise_mul(elementwise_sub(ones, y), log(elementwise_sub(ones, y_predict))))
+    ylogp = fluid.layers.elementwise_add(
+        ylogp, elementwise_mul(elementwise_sub(ones, y), log(elementwise_sub(ones, y_predict)))
+    )
 
     zeros = fluid.layers.fill_constant(y_predict.shape, "float32", 0)
     return fluid.layers.elementwise_sub(zeros, ylogp)
@@ -53,7 +55,7 @@ def create_loss(predict, label, num_classes=2):
     predict = fluid.layers.softmax(predict)
     label = fluid.layers.reshape(label, shape=[-1, 1])
     label = fluid.layers.cast(label, "int64")
-
+    # if "dice" in
     dice_loss = fluid.layers.dice_loss(predict, label)
 
     # label = fluid.layers.cast(label, "int64")
@@ -61,4 +63,4 @@ def create_loss(predict, label, num_classes=2):
     ce_loss = fluid.layers.cross_entropy(predict, label)
     # focal = focal_loss(predict, label)
 
-    return fluid.layers.reduce_mean(ce_loss + dice_loss)
+    return fluid.layers.reduce_mean(6 * ce_loss + dice_loss)

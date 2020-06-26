@@ -2,12 +2,15 @@
 对内存中的ndarray，npz，nii进行可视化
 """
 import sys
+import os
+import argparse
+
 import nibabel as nib
 import numpy as np
-import os
+import matplotlib.pyplot as plt
+
 from utils.config import cfg
 import utils.util as util
-import matplotlib.pyplot as plt
 import train
 
 
@@ -83,7 +86,7 @@ def show_npz():
     """
     for npz in os.listdir(cfg.TRAIN.DATA_PATH):
         data = np.load(os.path.join(cfg.TRAIN.DATA_PATH, npz))
-        vol = data["vols"]
+        vol = data["imgs"]
         lab = data["labs"]
         for ind in range(vol.shape[0]):
             show_slice(vol[ind], lab[ind])
@@ -95,7 +98,7 @@ def show_aug():
     """
     for npz in os.listdir(cfg.TRAIN.DATA_PATH):
         data = np.load(os.path.join(cfg.TRAIN.DATA_PATH, npz))
-        vol = data["vols"]
+        vol = data["imgs"]
         lab = data["labs"]
         vol = vol.astype("float32")
         lab = lab.astype("int32")
@@ -107,7 +110,8 @@ def show_aug():
 
 
 if __name__ == "__main__":
-    # show_nii()
-    # show_npz()
     parse_args()
-    show_aug()
+    # show_nii()
+    show_npz()
+
+    # show_aug()

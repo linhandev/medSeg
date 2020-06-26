@@ -96,8 +96,8 @@ def res_unet(img, label_number, img_size):
     decoder_filters = [256, 128, 64, 32]
     print("| Input Image Data", img.shape)
     """
-	Encoder
-	"""
+    Encoder
+    """
     # Start Conv
     start_conv = conv_bn_layer(input=img, num_filters=32, filter_size=3, stride=2, act="relu")
     start_conv = conv_bn_layer(
@@ -114,16 +114,16 @@ def res_unet(img, label_number, img_size):
     conv3 = encoder_block(conv2, encoder_depth, encoder_filters, block=3)
 
     """
-	Decoder
-	"""
+    Decoder
+    """
     decode_conv1 = decoder_block(conv3, conv2, decoder_depth, decoder_filters, block=0)
     decode_conv2 = decoder_block(decode_conv1, conv1, decoder_depth, decoder_filters, block=1)
     decode_conv3 = decoder_block(decode_conv2, conv0, decoder_depth, decoder_filters, block=2)
     decode_conv4 = decoder_block(decode_conv3, start_conv, decoder_depth, decoder_filters, block=3)
 
     """
-	Output Coder
-	"""
+    Output Coder
+    """
     decode_conv5 = fluid.layers.resize_bilinear(input=decode_conv4, out_shape=img_size)
     decode_conv5 = bottleneck_block(input=decode_conv5, num_filters=32, stride=1)
     decode_conv5 = bottleneck_block(input=decode_conv5, num_filters=16, stride=1)
