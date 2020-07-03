@@ -6,6 +6,7 @@ import sys
 import numpy as np
 import math
 from scipy import ndimage
+from utils.config import cfg
 
 # TODO: 清理函数，去除不需要的，对需要的加上清晰注释
 
@@ -335,3 +336,24 @@ def save_nii(vol, lab, name="test"):
     labf = nib.Nifti1Image(lab, np.eye(4))
     nib.save(volf, "/home/aistudio/data/temp/{}-vol.nii".format(name))
     nib.save(labf, "/home/aistudio/data/temp/{}-lab.nii".format(name))
+
+
+def slice_count():
+    """数所有的npz总共包含多少slice.
+
+    Returns
+    -------
+    int
+        所有npz中slice总数.
+
+    """
+    tot = 0
+    npz_names = listdir(cfg.TRAIN.DATA_PATH)
+    for npz_name in npz_names:
+        data = np.load(os.path.join(cfg.TRAIN.DATA_PATH, npz_name))
+        lab = data["labs"]
+        tot += lab.shape[0]
+    return tot
+
+
+# print(slice_count())

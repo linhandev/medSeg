@@ -1,15 +1,15 @@
 # Author: Jingxiao Gu
 # Baidu Account: Seigato
-# Description: Unet Simple Network for Lane Segmentation Competition
+# Description: Unet Base Network for Lane Segmentation Competition
+# 80 unet
+
 
 import paddle.fluid as fluid
 from paddle.fluid.initializer import MSRA
 from paddle.fluid.param_attr import ParamAttr
 
 
-def conv_bn_layer(
-    input, num_filters, filter_size, stride=1, groups=1, act=None, bn=True, bias_attr=False
-):
+def conv_bn_layer(input, num_filters, filter_size, stride=1, groups=1, act=None, bn=True, bias_attr=False):
     conv = fluid.layers.conv2d(
         input=input,
         num_filters=num_filters,
@@ -17,13 +17,10 @@ def conv_bn_layer(
         stride=stride,
         padding=(filter_size - 1) // 2,
         groups=groups,
-        act=None,  # 为了试swish loss暂时换的
+        act=None,
         bias_attr=bias_attr,
         param_attr=ParamAttr(initializer=MSRA()),
     )
-    # conv = fluid.layers.swish(conv, beta=1.0)
-    conv = fluid.layers.leaky_relu(conv, alpha=0.05)
-
     if bn == True:
         conv = fluid.layers.batch_norm(input=conv, act=act)
     return conv
@@ -37,12 +34,10 @@ def conv_layer(input, num_filters, filter_size, stride=1, groups=1, act=None):
         stride=stride,
         padding=(filter_size - 1) // 2,
         groups=groups,
-        act=None,  # 为了试swish loss暂时换的
+        act=act,
         bias_attr=ParamAttr(initializer=MSRA()),
         param_attr=ParamAttr(initializer=MSRA()),
     )
-    # conv = fluid.layers.swish(conv, beta=1.0)
-    conv = fluid.layers.leaky_relu(conv, alpha=0.05)
     return conv
 
 
@@ -55,10 +50,8 @@ def shortcut(input, ch_out, stride):
 
 
 def bottleneck_block(input, num_filters, stride):
-    conv_bn = conv_bn_layer(input=input, num_filters=num_filters, filter_size=3, act="relu")
-    conv_bn = conv_bn_layer(
-        input=conv_bn, num_filters=num_filters, filter_size=3, stride=stride, act=None
-    )
+    conv_bn = conv_bn_layer(input=input, num_filters=num_filters, filter_size=1, act="relu")
+    conv_bn = conv_bn_layer(input=conv_bn, num_filters=num_filters, filter_size=3, stride=stride, act=None)
     short_bn = shortcut(input, num_filters, stride)
     return fluid.layers.elementwise_add(x=short_bn, y=conv_bn, act="relu")
 
@@ -67,9 +60,7 @@ def encoder_block(input, encoder_depths, encoder_filters, block):
     conv_bn = input
     for i in range(encoder_depths[block]):
         conv_bn = bottleneck_block(
-            input=conv_bn,
-            num_filters=encoder_filters[block],
-            stride=2 if i == 0 and block != 0 else 1,
+            input=conv_bn, num_filters=encoder_filters[block], stride=2 if i == 0 and block != 0 else 1,
         )
     print("| Encoder Block", block, conv_bn.shape)
     return conv_bn
@@ -95,9 +86,9 @@ def decoder_block(input, concat_input, decoder_depths, decoder_filters, block):
 
 def unet_plain(img, label_number, img_size):
     print("| Build Custom-Designed Resnet-Unet:")
-    encoder_depth = [3, 4, 5, 3]
+    encoder_depth = [3, 4, 6, 4]
     encoder_filters = [64, 128, 256, 512]
-    decoder_depth = [2, 3, 3, 2]
+    decoder_depth = [4, 3, 3, 2]
     decoder_filters = [256, 128, 64, 32]
     print("| Input Image Data", img.shape)
     """
@@ -105,9 +96,7 @@ def unet_plain(img, label_number, img_size):
     """
     # Start Conv
     start_conv = conv_bn_layer(input=img, num_filters=32, filter_size=3, stride=2, act="relu")
-    start_conv = conv_bn_layer(
-        input=start_conv, num_filters=32, filter_size=3, stride=1, act="relu"
-    )
+    start_conv = conv_bn_layer(input=start_conv, num_filters=32, filter_size=3, stride=1, act="relu")
     start_pool = fluid.layers.pool2d(
         input=start_conv, pool_size=3, pool_stride=2, pool_padding=1, pool_type="max"
     )

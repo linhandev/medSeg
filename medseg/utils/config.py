@@ -165,6 +165,7 @@ cfg.PREP.THRESH = 256
 cfg.PREP.SIZE = (512, 512, -1)
 # 预处理过程中多少组数据组成一个npz文件
 # 可以先跑bs=1，看看一对数据多大；尽量至少将训练数据分入10个npz，否则分训练和验证集的时候会很不准
+# 这个值不建议给成 2^n，这样更利于随机打乱数据
 cfg.PREP.BATCH_SIZE = 128
 
 """训练配置"""
@@ -190,11 +191,13 @@ cfg.TRAIN.ARCHITECTURE = "res_unet"
 # 使用的正则化方法，支持L1，L2，其他一切值都是不加正则化
 cfg.TRAIN.REG_TYPE = "L1"
 # 正则化的权重
-cfg.TRAIN.REG_COEFF = 1e-7
+cfg.TRAIN.REG_COEFF = 1e-6
 # 梯度下降方法
 cfg.TRAIN.OPTIMIZER = "adam"
 # 学习率
-cfg.TRAIN.LR = 0.003
+cfg.TRAIN.LR = [0.003, 0.002, 0.001]
+# 学习率变化step
+cfg.TRAIN.BOUNDARIES = [10000, 20000]
 # Loss 支持ce，dice，miou，wce，focal
 cfg.TRAIN.LOSS = ["ce", "dice"]
 # 是否使用GPU进行训练

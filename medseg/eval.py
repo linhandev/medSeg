@@ -53,7 +53,7 @@ def main():
     preds = util.listdir(cfg.EVAL.PATH.SEG)
     labels = util.listdir(cfg.EVAL.PATH.GT)
 
-    print(preds, labels)
+    # print(preds, labels)
     res = []
     # BUG: pbar一直另起一行
     pbar = tqdm(total=len(preds), desc="评测进度")
@@ -131,6 +131,9 @@ def main():
 
     f.close()
 
+
+# TODO: 绘制箱须图
+# https://matplotlib.org/gallery/pyplots/boxplot_demo_pyplot.html#sphx-glr-gallery-pyplots-boxplot-demo-pyplot-py
 
 if __name__ == "__main__":
     parse_args()

@@ -9,19 +9,14 @@ PREP:
   CROP: False
   THRESH: 1024
   SIZE: (512, 512, -1)
-  BATCH_SIZE: 20
-
+  BATCH_SIZE: 16
 TRAIN:
   ARCHITECTURE: "unet_plain"
-  BATCH_SIZE: 16
+  BATCH_SIZE: 1
   SNAPSHOT_BATCH: 600
-  DISP_BATCH: 20
-  OPTIMIZER: "adam"
+  DISP_BATCH: 1
   REG_TYPE: L1
-  REG_COEFF: 3e-6
-  BOUNDARIES: [10000, 20000]
-  LR: [0.002, 0.001, 0.0005]
-
+  REG_COEFF: 1e-6
 AUG:
   ROTATE:
     RATIO: (0, 0.2, 0)
@@ -33,13 +28,12 @@ AUG:
   ZOOM:
     RATIO: (0, 0.3, 0.3)
     RANGE: (0, (0.8, 1.0), (0.8, 1.0))
-
 INFER:
   PATH:
     INPUT: "/home/aistudio/data/inference"
     OUTPUT: "/home/aistudio/data/infer_lab"
     PARAM: "/home/aistudio/param/liver_inf"
-  BATCH_SIZE: 100
+  BATCH_SIZE: 196
 EVAL:
   PATH:
     SEG: "/home/aistudio/data/infer_lab"

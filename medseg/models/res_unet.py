@@ -1,23 +1,23 @@
 # Author: Jingxiao Gu
 # Baidu Account: Seigato
-# Description: Unet Base Network for Lane Segmentation Competition
+# Description: Unet Simple Network for Lane Segmentation Competition
 
 import paddle.fluid as fluid
 from paddle.fluid.initializer import MSRA
 from paddle.fluid.param_attr import ParamAttr
 
+# 测试：所有的relu都换成leaky_relu试一下
 
-def conv_bn_layer(
-    input, num_filters, filter_size, stride=1, groups=1, act=None, bn=True, bias_attr=False
-):
+
+def conv_bn_layer(input, num_filters, filter_size, stride=1, groups=1, act=None, bn=True, bias_attr=False):
     conv = fluid.layers.conv2d(
         input=input,
         num_filters=num_filters,
         filter_size=filter_size,
         stride=stride,
-        padding=(filter_size - 1) // 2,
+        padding=(filter_size - 1) // 2,  # same
         groups=groups,
-        act=None,
+        act=act,
         bias_attr=bias_attr,
         param_attr=ParamAttr(initializer=MSRA()),
     )
@@ -50,21 +50,17 @@ def shortcut(input, ch_out, stride):
 
 
 def bottleneck_block(input, num_filters, stride):
-    conv_bn = conv_bn_layer(input=input, num_filters=num_filters, filter_size=1, act="relu")
-    conv_bn = conv_bn_layer(
-        input=conv_bn, num_filters=num_filters, filter_size=3, stride=stride, act=None
-    )
+    conv_bn = conv_bn_layer(input=input, num_filters=num_filters, filter_size=3, act="leaky_relu")
+    conv_bn = conv_bn_layer(input=conv_bn, num_filters=num_filters, filter_size=3, stride=stride, act=None)
     short_bn = shortcut(input, num_filters, stride)
-    return fluid.layers.elementwise_add(x=short_bn, y=conv_bn, act="relu")
+    return fluid.layers.elementwise_add(x=short_bn, y=conv_bn, act="leaky_relu")
 
 
 def encoder_block(input, encoder_depths, encoder_filters, block):
     conv_bn = input
     for i in range(encoder_depths[block]):
         conv_bn = bottleneck_block(
-            input=conv_bn,
-            num_filters=encoder_filters[block],
-            stride=2 if i == 0 and block != 0 else 1,
+            input=conv_bn, num_filters=encoder_filters[block], stride=2 if i == 0 and block != 0 else 1,
         )
     print("| Encoder Block", block, conv_bn.shape)
     return conv_bn
@@ -78,7 +74,7 @@ def decoder_block(input, concat_input, decoder_depths, decoder_filters, block):
     deconv_bn = bottleneck_block(input=deconv_bn, num_filters=decoder_filters[block], stride=1)
 
     concat_input = conv_bn_layer(
-        input=concat_input, num_filters=concat_input.shape[1] // 2, filter_size=1, act="relu"
+        input=concat_input, num_filters=concat_input.shape[1] // 2, filter_size=1, act="leaky_relu"
     )
 
     deconv_bn = fluid.layers.concat([deconv_bn, concat_input], axis=1)
@@ -90,19 +86,17 @@ def decoder_block(input, concat_input, decoder_depths, decoder_filters, block):
 
 def res_unet(img, label_number, img_size):
     print("| Build Custom-Designed Resnet-Unet:")
-    encoder_depth = [3, 4, 6, 4]
+    encoder_depth = [3, 4, 5, 3]
     encoder_filters = [64, 128, 256, 512]
-    decoder_depth = [4, 3, 3, 2]
+    decoder_depth = [2, 3, 3, 2]
     decoder_filters = [256, 128, 64, 32]
     print("| Input Image Data", img.shape)
     """
     Encoder
     """
     # Start Conv
-    start_conv = conv_bn_layer(input=img, num_filters=32, filter_size=3, stride=2, act="relu")
-    start_conv = conv_bn_layer(
-        input=start_conv, num_filters=32, filter_size=3, stride=1, act="relu"
-    )
+    start_conv = conv_bn_layer(input=img, num_filters=32, filter_size=3, stride=2, act="leaky_relu")
+    start_conv = conv_bn_layer(input=start_conv, num_filters=32, filter_size=3, stride=1, act="leaky_relu")
     start_pool = fluid.layers.pool2d(
         input=start_conv, pool_size=3, pool_stride=2, pool_padding=1, pool_type="max"
     )
@@ -124,6 +118,10 @@ def res_unet(img, label_number, img_size):
     """
     Output Coder
     """
+    print("+_+_+")
+    print(decode_conv4.shape)
+    print(img_size)
+    print("+_+_+")
     decode_conv5 = fluid.layers.resize_bilinear(input=decode_conv4, out_shape=img_size)
     decode_conv5 = bottleneck_block(input=decode_conv5, num_filters=32, stride=1)
     decode_conv5 = bottleneck_block(input=decode_conv5, num_filters=16, stride=1)

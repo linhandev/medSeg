@@ -167,7 +167,7 @@ def elastic_transform(image, alpha, sigma, random_state=None):
     return distored_image.reshape(image.shape)
 
 
-# TODO: 实现弹性形变
+# TODO: 增加随机shift的增强，这个针对显影剂，随机给整个输入加上一个值，肝脏是-80到0的正态
 # TODO: 增加随机噪音的增强
 # TODO: 增加图片随机组合的增强
 # TODO: 全部流程放进一个函数

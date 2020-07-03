@@ -55,7 +55,6 @@ def create_loss(predict, label, num_classes=2):
     predict = fluid.layers.softmax(predict)
     label = fluid.layers.reshape(label, shape=[-1, 1])
     label = fluid.layers.cast(label, "int64")
-    # if "dice" in
     dice_loss = fluid.layers.dice_loss(predict, label)
 
     # label = fluid.layers.cast(label, "int64")
@@ -63,4 +62,4 @@ def create_loss(predict, label, num_classes=2):
     ce_loss = fluid.layers.cross_entropy(predict, label)
     # focal = focal_loss(predict, label)
 
-    return fluid.layers.reduce_mean(6 * ce_loss + dice_loss)
+    return fluid.layers.reduce_mean(ce_loss + dice_loss)

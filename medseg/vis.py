@@ -5,10 +5,10 @@ import sys
 import os
 import argparse
 
+import SimpleITK as sitk
 import nibabel as nib
 import numpy as np
 import matplotlib.pyplot as plt
-
 from utils.config import cfg
 import utils.util as util
 import train
@@ -88,8 +88,10 @@ def show_npz():
         data = np.load(os.path.join(cfg.TRAIN.DATA_PATH, npz))
         vol = data["imgs"]
         lab = data["labs"]
-        for ind in range(vol.shape[0]):
-            show_slice(vol[ind], lab[ind])
+        # for ind in range(vol.shape[0]):
+        #     show_slice(vol[ind], lab[ind])
+        show_slice(vol[0], lab[0])
+        show_slice(vol[vol.shape[0] - 1], lab[vol.shape[0] - 1])
 
 
 def show_aug():
@@ -104,14 +106,97 @@ def show_aug():
         lab = lab.astype("int32")
         if cfg.AUG.WINDOWLIZE:
             vol = util.windowlize_image(vol, cfg.AUG.WWWC)  # 肝脏常用
-        for ind in range(vol.shape[0]):
-            vol_slice, lab_slice = train.aug_mapper([vol[ind], lab[ind]])
-            show_slice(vol_slice, lab_slice)
+        # for ind in range(vol.shape[0]):
+        vol_slice, lab_slice = train.aug_mapper([vol[0], lab[0]])
+        show_slice(vol_slice, lab_slice)
+
+        vol_slice, lab_slice = train.aug_mapper([vol[vol.shape[0] - 1], lab[vol.shape[0] - 1]])
+        show_slice(vol_slice, lab_slice)
 
 
 if __name__ == "__main__":
     parse_args()
     # show_nii()
-    show_npz()
+    # show_npz()
+    show_aug()
 
-    # show_aug()
+
+# import os
+# import matplotlib.pyplot as plt
+# from nibabel.orientations import aff2axcodes
+
+# vols = "/home/aistudio/data/volume"
+# for voln in os.listdir(vols):
+#     print("--------")
+#     print(voln)
+#
+#     volf = sitk.ReadImage(os.path.join(vols, voln))
+#
+#     vold = sitk.GetArrayFromImage(volf)
+#     print(vold.shape)
+#     vold[500:512, 250:260, 0] = 2048
+#
+#     plt.imshow(vold[0, :, :])
+#     plt.show()
+
+# vols = "/home/aistudio/data/volume"
+# directions = []
+# for voln in os.listdir(vols):
+#     print("--------")
+#     print(voln)
+#
+#     volf = nib.load(os.path.join(vols, voln))
+#     print(volf.affine)
+#     print("codes", aff2axcodes(volf.affine))
+#
+#     vold = volf.get_fdata()
+#     vold[500:512, 250:260, 0] = 2048
+#
+#     plt.imshow(vold[:, :, 0])
+#     plt.show()
+#
+#     cmd = input("direction: ")
+#     if cmd == "a":
+#         dir = [voln, 1]  # 床在左边
+#     else:
+#         dir = [voln, 2]  # 床在右边
+#     directions.append(dir)
+#
+#
+# f = open("./directions.csv", "w")
+# for dir in directions:
+#     print(dir[0], ",", dir[1], file=f)
+# f.close()
+
+
+# vols = "/home/aistudio/data/volume"
+#
+#
+# # 获取体位信息
+# f = open("./directions.csv")
+# dirs = f.readlines()
+# print("dirs: ", dirs)
+# dirs = [x.rstrip("\n") for x in dirs]
+# dirs = [x.split(",") for x in dirs]
+# dic = {}
+# for dir in dirs:
+#     dic[dir[0].strip()] = dir[1].strip()
+# f.close()
+#
+# print(dic)
+#
+#
+# for voln in os.listdir(vols):
+#     print("--------")
+#     print(voln)
+#
+#     volf = nib.load(os.path.join(vols, voln))
+#     vold = volf.get_fdata()
+#     print(dic[voln])
+#     if dic[voln] == "2":
+#         vold = np.rot90(vold, 3)
+#     else:
+#         vold = np.rot90(vold, 1)
+#
+#     plt.imshow(vold[:, :, 50])
+#     plt.show()

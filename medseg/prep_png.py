@@ -2,22 +2,19 @@
 
 
 import os
-
+import argparse
 
 import numpy as np
 import nibabel as nib
 from tqdm import tqdm
 import scipy
+import cv2
 import matplotlib.pyplot as plt
 
 import utils.util as util
 from utils.config import cfg
 import utils.util as util
-
-import argparse
 import aug
-
-# import vis
 
 np.set_printoptions(threshold=np.inf)
 
@@ -86,8 +83,10 @@ def main():
         volume = volf.get_fdata()
         label = labf.get_fdata()
         label = label.astype(int)
+
         # plt.imshow(volume[:, :, 0])
         # plt.show()
+
         if dic[volumes[i]] == "2":
             volume = np.rot90(volume, 3)
             label = np.rot90(label, 3)
@@ -135,36 +134,69 @@ def main():
         volume, label = aug.crop(volume, label, crop_size)
 
         # 开始切片
+        volume = volume.clip(-200, 200)
+        volume = (volume + 200) / 400 * 255
+        volume = volume.astype(np.uint8)
+        print(volume.dtype)
+
         if cfg.PREP.PLANE == "xy":
             for frame in range(1, volume.shape[2] - 1):
                 if label[:, :, frame].sum() > cfg.PREP.THRESH:
-                    vol = volume[:, :, frame - 1 : frame + 2]
+                    # vol = volume[:, :, frame - 1 : frame + 2]
                     lab = label[:, :, frame]
-                    lab = lab[:, :, np.newaxis]
 
-                    vol = np.swapaxes(vol, 0, 2)
-                    lab = np.swapaxes(lab, 0, 2)  # [3,512,512],CWH 的顺序
+                    vol = volume[:, :, frame]
+                    lab = lab * 255
 
-                    vol_npz.append(vol.copy())
-                    lab_npz.append(lab.copy())
-                    print("{} 片满足，当前共 {}".format(frame, len(vol_npz)))
+                    # print(vol.shape)
+                    # print(lab.shape)
+                    cv2.imwrite(
+                        os.path.join(
+                            cfg.DATA.PREP_PATH,
+                            "imgs",
+                            "lits-{}-{}.png".format(
+                                volumes[i].lstrip("volume-").rstrip(".nii"), frame
+                            ),
+                        ),
+                        vol,
+                    )
 
-                    if len(vol_npz) == cfg.PREP.BATCH_SIZE or (
-                        i == (len(labels) - 1) and frame == volume.shape[2] - 1
-                    ):
-                        imgs = np.array(vol_npz)
-                        labs = np.array(lab_npz)
-                        print(imgs.shape)
-                        print(labs.shape)
-                        print("正在存盘")
-                        file_name = "{}_{}_f{}-{}".format(
-                            cfg.DATA.NAME, cfg.PREP.PLANE, cfg.PREP.FRONT, npz_count
-                        )
-                        file_path = os.path.join(cfg.DATA.PREP_PATH, file_name)
-                        np.savez(file_path, imgs=imgs, labs=labs)
-                        vol_npz = []
-                        lab_npz = []
-                        npz_count += 1
+                    cv2.imwrite(
+                        os.path.join(
+                            cfg.DATA.PREP_PATH,
+                            "labs",
+                            "lits-{}-{}.png".format(
+                                volumes[i].lstrip("volume-").rstrip(".nii"), frame
+                            ),
+                        ),
+                        lab,
+                    )
+
+                    # volimg = Image.fromarray(vol)
+                    # labimg = Image.fromarray(lab, "L")
+                    # volimg.save(
+                    #     os.path.join(
+                    #         cfg.DATA.PREP_PATH,
+                    #         "imgs",
+                    #         "lits-{}-{}.png".format(
+                    #             volumes[i].lstrip("volume-").rstrip(".nii"), frame
+                    #         ),
+                    #     )
+                    # )
+                    # labimg.save(
+                    #     os.path.join(
+                    #         cfg.DATA.PREP_PATH,
+                    #         "labs",
+                    #         "lits-{}-{}.png".format(
+                    #             volumes[i].lstrip("volume-").rstrip(".nii"), frame
+                    #         ),
+                    #     )
+                    # )
+                    # volimg.close()
+                    # labimg.close()
+
+                    # input("here")
+
         else:
             print(volume.shape, label.shape)
             for frame in range(1, volume.shape[0] - 1):

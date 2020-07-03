@@ -129,7 +129,7 @@ def main():
 
                 toc = time.time()
                 post_time += toc - tic
-            print("here")
+            # print("here")
             inference[inference >= cfg.INFER.THRESH] = 1
             inference[inference < cfg.INFER.THRESH] = 0
             if cfg.INFER.FILTER_LARGES:

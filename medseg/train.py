@@ -1,20 +1,19 @@
 # coding=utf-8
-from __future__ import print_function
-
 import sys
 import os
 import argparse
 import random
 import math
-import numpy as np
 from datetime import datetime
+import multiprocessing
+
+import numpy as np
 from tqdm.auto import tqdm
-
-
 import paddle
 import paddle.fluid as fluid
 from paddle.fluid.layers import log
 from visualdl import LogWriter
+
 
 import utils.util as util
 from utils.config import cfg
@@ -41,16 +40,16 @@ def parse_args():
         cfg.TRAIN.DO_EVAL = True
 
     cfg.set_immutable(True)
+    # TODO: 打印cfg配置
 
 
-def data_reader(part_start=0, part_end=8, is_test=False):
-    # TODO: 对数据更好的进行shuffle
-    npz_names = util.listdir(cfg.TRAIN.DATA_PATH)
-    # NOTE: 这种分法效率高好写，但是在npz很少的时候分得不准。小数据集预处理尽量组小的batch
-    npz_part = npz_names[
-        int(len(npz_names) * part_start / 10) : int(len(npz_names) * part_end / 10)
-    ]
-    random.shuffle(npz_part)
+npz_names = util.listdir(cfg.TRAIN.DATA_PATH)
+random.shuffle(npz_names)
+
+
+def data_reader(part_start=0, part_end=8):
+    # NOTE: 这种分法效率高好写，但是npz很少的时候分得不准。npz文件至少分10个
+    npz_part = npz_names[int(len(npz_names) * part_start / 10) : int(len(npz_names) * part_end / 10)]
 
     def reader():
         # BUG: tqdm每次更新都另起一行，此外要单独测试windows上好不好使
@@ -60,14 +59,14 @@ def data_reader(part_start=0, part_end=8, is_test=False):
             data = np.load(os.path.join(cfg.TRAIN.DATA_PATH, npz_name))
             imgs = data["imgs"]
             labs = data["labs"]
-            # assert (
-            #     len(np.where(labs == 1)[0]) + len(np.where(labs == 0)[0]) != labs.size
-            # ), "非法的label数值"
+            assert len(np.where(labs == 1)[0]) + len(np.where(labs == 0)[0]) == labs.size, "非法的label数值"
             if cfg.AUG.WINDOWLIZE:
                 imgs = util.windowlize_image(imgs, cfg.AUG.WWWC)
             else:
-                imgs = util.windowlize_image(imgs, (2048, 0))
-            for ind in range(imgs.shape[0]):
+                imgs = util.windowlize_image(imgs, (4096, 0))
+            inds = [x for x in range(imgs.shape[0])]
+            random.shuffle(inds)
+            for ind in inds:
                 if cfg.TRAIN.DATA_COUNT != -1:
                     pbar.update()
                 vol = imgs[ind].reshape(3, 512, 512).astype("float32")
@@ -92,7 +91,6 @@ def aug_mapper(data):
 
 
 def main():
-
     train_program = fluid.Program()
     train_init = fluid.Program()
 
@@ -105,7 +103,6 @@ def main():
             iterable=True,
             use_double_buffer=True,
         )
-        # OPTIMIZE: 这里考虑换形式，dict的话每一个东西都会被调用，比如每个网络都会构建，这样很大浪费
         prediction = create_model(image, 2)
         avg_loss = loss.create_loss(prediction, label, 2)
         miou = loss.mean_iou(prediction, label, 2)
@@ -119,10 +116,13 @@ def main():
             decay = None
 
         # 选择优化器
+        lr = fluid.layers.piecewise_decay(boundaries=cfg.TRAIN.BOUNDARIES, values=cfg.TRAIN.LR)
         if cfg.TRAIN.OPTIMIZER == "adam":
-            optimizer = fluid.optimizer.AdamOptimizer(learning_rate=0.003, regularization=decay)
+            optimizer = fluid.optimizer.AdamOptimizer(learning_rate=lr, regularization=decay,)
         elif cfg.TRAIN.OPTIMIZER == "sgd":
-            optimizer = fluid.optimizer.SGDOptimizer(learning_rate=0.003, regularization=decay)
+            optimizer = fluid.optimizer.SGDOptimizer(learning_rate=lr, regularization=decay)
+        elif cfg.TRAIN.OPTIMIZE == "momentum":
+            optimizer = fluid.optimizer.Momentum(momentum=0.9, learning_rate=lr, regularization=decay,)
         else:
             raise Exception("错误的优化器类型: {}".format(cfg.TRAIN.OPTIMIZER))
         optimizer.minimize(avg_loss)
@@ -133,17 +133,18 @@ def main():
     exe_test = fluid.Executor(places)
 
     test_program = train_program.clone(for_test=True)
-    compiled_train_program = fluid.CompiledProgram(train_program).with_data_parallel(
-        loss_name=avg_loss.name
-    )
+    compiled_train_program = fluid.CompiledProgram(train_program).with_data_parallel(loss_name=avg_loss.name)
 
     if cfg.TRAIN.PRETRAINED_WEIGHT != "":
         print("Loading paramaters")
         fluid.io.load_persistables(exe, cfg.TRAIN.PRETRAINED_WEIGHT, train_program)
 
-    train_reader = fluid.io.xmap_readers(aug_mapper, data_reader(0, 8), 8, cfg.TRAIN.BATCH_SIZE * 2)
+    # train_reader = fluid.io.xmap_readers(
+    #     aug_mapper, data_reader(0, 8), multiprocessing.cpu_count()/2, 16
+    # )
+    train_reader = data_reader(0, 8)
     train_loader.set_sample_generator(train_reader, batch_size=cfg.TRAIN.BATCH_SIZE, places=places)
-    test_reader = paddle.batch(data_reader(8, 10, True), cfg.TRAIN.BATCH_SIZE)
+    test_reader = paddle.batch(data_reader(8, 10), cfg.INFER.BATCH_SIZE)
     test_feeder = fluid.DataFeeder(place=places, feed_list=[image, label])
 
     writer = LogWriter(logdir="/home/aistudio/log/{}".format(datetime.now()))
@@ -165,14 +166,17 @@ def main():
                         pass_id, step, avg_loss_value[0], miou_value[0]
                     )
                 )
+
             if math.isnan(float(avg_loss_value[0])):
                 sys.exit("Got NaN loss, training failed.")
 
-            if step % cfg.TRAIN.SNAPSHOT_BATCH == 0:
+            if step % cfg.TRAIN.SNAPSHOT_BATCH == 0 and cfg.TRAIN.DO_EVAL:
+                test_step = 0
                 eval_miou = 0
                 test_losses = []
                 test_mious = []
                 for test_data in test_reader():
+                    test_step += 1
                     preds, test_loss, test_miou = exe_test.run(
                         test_program,
                         feed=test_feeder.feed(test_data),
@@ -180,18 +184,18 @@ def main():
                     )
                     test_losses.append(test_loss[0])
                     test_mious.append(test_miou[0])
+                    if test_step % cfg.TRAIN.DISP_BATCH == 0:
+                        print("\t\tTest Loss: {} , Miou: {}".format(test_loss[0], test_miou[0]))
 
                 eval_miou = np.average(np.array(test_mious))
                 writer.add_scalar(
                     tag="test_miou", step=step, value=eval_miou,
                 )
-                print(
-                    "Test loss: {} ,miou: {}".format(np.average(np.array(test_losses)), eval_miou)
-                )
-                ckpt_dir = os.path.join(cfg.TRAIN.CKPT_MODEL_PATH, str(step))
+                print("Test loss: {} ,miou: {}".format(np.average(np.array(test_losses)), eval_miou))
+                ckpt_dir = os.path.join(cfg.TRAIN.CKPT_MODEL_PATH, str(step) + "_" + str(eval_miou))
                 fluid.io.save_persistables(exe, ckpt_dir, train_program)
 
-                print("目前最高的测试MIOU是： ", best_miou)
+                print("此前最高的测试MIOU是： ", best_miou)
 
             if step % cfg.TRAIN.SNAPSHOT_BATCH == 0 and eval_miou > best_miou:
                 best_miou = eval_miou
