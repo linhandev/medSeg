@@ -70,7 +70,7 @@ def main():
     vol_npz = []
     lab_npz = []
     npz_count = 0
-
+    thick = (cfg.TRAIN.THICKNESS - 1) / 2
     pbar = tqdm(range(len(labels)), desc="数据处理中")
     for i in range(len(labels)):
         pbar.set_postfix(filename=labels[i] + " " + volumes[i])
@@ -138,7 +138,7 @@ def main():
         if cfg.PREP.PLANE == "xy":
             for frame in range(1, volume.shape[2] - 1):
                 if label[:, :, frame].sum() > cfg.PREP.THRESH:
-                    vol = volume[:, :, frame - 1 : frame + 2]
+                    vol = volume[:, :, frame - thick : frame + thick + 1]
                     lab = label[:, :, frame]
                     lab = lab[:, :, np.newaxis]
 

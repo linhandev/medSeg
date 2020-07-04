@@ -63,44 +63,7 @@ class PjConfig(dict):
                     self.__setattr__(key, value, create_if_not_exist=False)
                 except KeyError:
                     raise KeyError("Non-existent config key: {}".format(key))
-
-    # def check_and_infer(self):
-    #     if self.DATASET.IMAGE_TYPE in ["rgb", "gray"]:
-    #         self.DATASET.DATA_DIM = 3
-    #     elif self.DATASET.IMAGE_TYPE in ["rgba"]:
-    #         self.DATASET.DATA_DIM = 4
-    #     else:
-    #         raise KeyError(
-    #             "DATASET.IMAGE_TYPE config error, only support `rgb`, `gray` and `rgba`"
-    #         )
-    #     if self.MEAN is not None:
-    #         self.DATASET.PADDING_VALUE = [x * 255.0 for x in self.MEAN]
-    #
-    #     if not self.TRAIN_CROP_SIZE:
-    #         raise ValueError(
-    #             "TRAIN_CROP_SIZE is empty! Please set a pair of values in format (width, height)"
-    #         )
-    #
-    #     if not self.EVAL_CROP_SIZE:
-    #         raise ValueError(
-    #             "EVAL_CROP_SIZE is empty! Please set a pair of values in format (width, height)"
-    #         )
-    #
-    #     # Ensure file list is use UTF-8 encoding
-    #     train_sets = codecs.open(self.DATASET.TRAIN_FILE_LIST, "r", "utf-8").readlines()
-    #     val_sets = codecs.open(self.DATASET.VAL_FILE_LIST, "r", "utf-8").readlines()
-    #     test_sets = codecs.open(self.DATASET.TEST_FILE_LIST, "r", "utf-8").readlines()
-    #     self.DATASET.TRAIN_TOTAL_IMAGES = len(train_sets)
-    #     self.DATASET.VAL_TOTAL_IMAGES = len(val_sets)
-    #     self.DATASET.TEST_TOTAL_IMAGES = len(test_sets)
-    #
-    #     if self.MODEL.MODEL_NAME == "icnet" and len(self.MODEL.MULTI_LOSS_WEIGHT) != 3:
-    #         self.MODEL.MULTI_LOSS_WEIGHT = [1.0, 0.4, 0.16]
-    #
-    #     if self.AUG.AUG_METHOD not in ["unpadding", "stepscaling", "rangescaling"]:
-    #         raise ValueError(
-    #             "AUG.AUG_METHOD config error, only support `unpadding`, `unpadding` and `rangescaling`"
-    #         )
+        self.check()
 
     def update_from_list(self, config_list):
         if len(config_list) % 2 != 0:
@@ -112,6 +75,7 @@ class PjConfig(dict):
                 self.__setattr__(key, value, create_if_not_exist=False)
             except KeyError:
                 raise KeyError("Non-existent config key: {}".format(key))
+        self.check()
 
     def update_from_file(self, config_file):
         with codecs.open(config_file, "r", "utf-8") as file:
@@ -127,6 +91,10 @@ class PjConfig(dict):
     def is_immutable(self):
         return self.immutable
 
+    def check(self):
+        if cfg.PREP.THICKNESS % 2 != 1:
+            raise ValueError("2.5D预处理厚度 {} 不是奇数".format(cfg.TRAIN.THICKNESS))
+
 
 cfg = PjConfig()
 
@@ -134,7 +102,7 @@ cfg = PjConfig()
 # 数据集名称
 cfg.DATA.NAME = "lits"
 # 输入的2D或3D图像路径
-cfg.DATA.INPUTS_PATH = "/home/aistudio/data/volume"
+cfg.DATA.INPUTS_PATH = "/home/aistudio/data/scan"
 # 标签路径
 cfg.DATA.LABELS_PATH = "/home/aistudio/data/label"
 # 预处理输出npz路径
@@ -158,11 +126,13 @@ cfg.PREP.INTERP_PIXDIM = (-1, -1, 1.0)
 # 是否进行窗口化，在预处理阶段不建议做，灵活性太低
 cfg.PREP.WINDOW = False
 # 窗宽窗位
-cfg.PREP.WWWC = (400, 50)
+cfg.PREP.WWWC = (400, 0)
 # 丢弃前景数量少于thresh的slice
 cfg.PREP.THRESH = 256
 # 3D的数据在开始切割之前pad到这个大小，-1的维度会放着不动
 cfg.PREP.SIZE = (512, 512, -1)
+# 2.5D预处理一片的厚度
+cfg.PREP.THICKNESS = 3
 # 预处理过程中多少组数据组成一个npz文件
 # 可以先跑bs=1，看看一对数据多大；尽量至少将训练数据分入10个npz，否则分训练和验证集的时候会很不准
 # 这个值不建议给成 2^n，这样更利于随机打乱数据

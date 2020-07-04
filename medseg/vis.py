@@ -4,11 +4,13 @@
 import sys
 import os
 import argparse
+import time
 
 import SimpleITK as sitk
 import nibabel as nib
 import numpy as np
 import matplotlib.pyplot as plt
+
 from utils.config import cfg
 import utils.util as util
 import train
@@ -67,17 +69,37 @@ def show_slice(vol, lab):
 
 
 def show_nii():
-    for fname in os.listdir(lab_dir):
-        volf = nib.load(os.path.join(vol_dir, fname))
-        labf = nib.load(os.path.join(lab_dir, fname))
-        vol = volf.get_fdata()
-        vol = util.windowlize_image(vol, 400, 20)
-        lab = labf.get_fdata()
-        print(vol.shape)
-        print(lab.shape)
-        # vol = vol.swapaxes(0,2)
-        for sli_ind in range(vol.shape[2]):
-            show_slice(vol[:, :, sli_ind], lab[:, :, sli_ind])
+    scans = util.listdir(cfg.DATA.INPUTS_PATH)
+    labels = util.listdir(cfg.DATA.LABELS_PATH)
+    records = []
+    for ind in range(len(scans)):
+        # for ind in range(3):
+        print(scans[ind], labels[ind])
+
+        scanf = nib.load(os.path.join(cfg.DATA.INPUTS_PATH, scans[ind]))
+        labelf = nib.load(os.path.join(cfg.DATA.LABELS_PATH, labels[ind]))
+        scan = scanf.get_fdata()
+        scan = util.windowlize_image(scan, cfg.PREP.WWWC)
+        label = labelf.get_fdata()
+        scan, label = util.cal_direction(scans[ind], scan, label)
+        print(scan.shape)
+        print(label.shape)
+        sli_ind = int(scan.shape[2] / 6)
+        # for sli_ind in range(vol.shape[2]):
+        show_slice(scan[:, :, sli_ind * 2], label[:, :, sli_ind * 2])
+        show_slice(scan[:, :, sli_ind * 3], label[:, :, sli_ind * 3])
+        show_slice(scan[:, :, sli_ind * 4], label[:, :, sli_ind * 4])
+        t = input("是否左右翻转: ")
+        records.append([scans[ind], t])
+        time.sleep(1)
+        print(records)
+
+    f = open("./flip.csv", "w")
+    for record in records:
+        print(record[0] + "," + record[1], file=f)
+    f.close()
+    # 1 rot 1 次，2 rot 3 次
+    # 0 左右不 flip， 1 左右 flip
 
 
 def show_npz():
@@ -116,9 +138,9 @@ def show_aug():
 
 if __name__ == "__main__":
     parse_args()
-    # show_nii()
+    show_nii()
     # show_npz()
-    show_aug()
+    # show_aug()
 
 
 # import os

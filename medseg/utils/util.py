@@ -6,23 +6,52 @@ import sys
 import numpy as np
 import math
 from scipy import ndimage
-from utils.config import cfg
+
+# from utils.config import cfg
 
 # TODO: 清理函数，去除不需要的，对需要的加上清晰注释
 
 
 def listdir(path):
+    """展示一个路径下所有文件，排序并去除常见辅助文件.
+
+    Parameters
+    ----------
+    path : type
+        Description of parameter `path`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
     dirs = os.listdir(path)
     if ".DS_Store" in dirs:
         dirs.remove(".DS_Store")
-    if "checkpoint" in dirs:
-        dirs.remove("checkpoint")
     dirs.sort()  # 通过一样的sort保持vol和seg的对应
     return dirs
 
 
 def save_info(name, header, file_name):
-    """这个函数把header里的一些信息写到一个csv里，方便后期看 """
+    """将扫描header中的一些信息保存入csv.
+
+    Parameters
+    ----------
+    name : str
+        扫描文件名.
+    header : dict
+        扫描文件文件头.
+    file_name : str
+        csv文件的文件名.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
+
     """
 	sizeof_hdr      : 348
 	data_type       : b''
@@ -75,13 +104,7 @@ def save_info(name, header, file_name):
         header["dim"][1], ",", header["dim"][2], ",", header["dim"][3], end=", ", file=file,
     )
     print(
-        header["pixdim"][1],
-        ",",
-        header["pixdim"][2],
-        ",",
-        header["pixdim"][3],
-        end=", ",
-        file=file,
+        header["pixdim"][1], ",", header["pixdim"][2], ",", header["pixdim"][3], end=", ", file=file,
     )
     print(header["bitpix"], " , ", header["datatype"], file=file)
     file.close()
@@ -189,11 +212,7 @@ def crop_to_bbs(volume, bbs, padding=0.3):
 
     for i in range(bb_min.shape[0]):
         volumes.append(
-            volume[
-                bb_min[i][0] : bb_max[i][0],
-                bb_min[i][1] : bb_max[i][1],
-                bb_min[i][2] : bb_max[i][2],
-            ]
+            volume[bb_min[i][0] : bb_max[i][0], bb_min[i][1] : bb_max[i][1], bb_min[i][2] : bb_max[i][2],]
         )
     return volumes
 
@@ -270,54 +289,15 @@ def pad_volume(volume, pad_size, pad_value=0, strice=True):
     return volume
 
 
-def filter_largest_volume(label):
-    """对输入的3D标签进行处理，只保留其中最大的连通块
-
-    Parameters
-    ----------
-    label : ndarray
-        3D array：一个标签
-        4D array：一个batch的标签.
-
-    Returns
-    -------
-    type
-        只保留最大连通块的标签.
-
-    """
-    is_batch = False if label.ndim == 3 else True
-    if label.ndim == 3:
-        label = label[np.newaxis, :, :, :]
-
-    for ind in range(label.shape[0]):
-        vol, num = ndimage.label(label[ind], np.ones([3, 3, 3]))
-        maxi = 0
-        maxnum = 0
-        for i in range(1, num + 1):
-            count = vol[vol == i].size
-            if count > maxnum:
-                maxi = i
-                maxnum = count
-
-        vol[vol != maxi] = 0
-        vol[vol == maxi] = 1
-        label[ind] = vol
-    if is_batch:
-        return label
-    return label[0]
-
-
-# vol = np.array([[[0, 0, 1, 0], [0, 0, 0, 0], [0, 1, 1, 0]]])
-# print(filter_largest_volume(vol))
-
-
-def filter_largest_bb(label):
+def filter_largest_bb(label, ratio=1.2):
     """求最大的连通块bb范围，去掉范围外的所有fp。比只保留最大的连通块更保守.
 
     Parameters
     ----------
     label : ndarray
         分割标签，前景为1.
+    ratio: float
+        最终bb范围是最大联通块bb范围的多少倍，比如1.2相当于周围有0.1的拓展
 
     Returns
     -------
@@ -325,7 +305,82 @@ def filter_largest_bb(label):
         经过处理的标签.
 
     """
-    pass
+    # 求最大连通块
+    vol, num = ndimage.label(label, np.ones([3 for _ in range(label.ndim)]))
+    maxi = 0
+    maxnum = 0
+    for i in range(1, num + 1):
+        count = vol[vol == i].size
+        if count > maxnum:
+            maxi = i
+            maxnum = count
+    maxind = np.where(vol == maxi)
+    # 求最大连通块的bb范围
+    ind_range = [[np.min(maxind[axis]), np.max(maxind[axis]) + 1] for axis in range(label.ndim)]
+    ind_len = [r[1] - r[0] for r in ind_range]
+    ext_ratio = (ratio - 1) / 2
+    # 求加上拓展的边缘
+    clip_range = [[r[0] - int(l * ext_ratio), r[1] + int(l * ext_ratio)] for r, l in zip(ind_range, ind_len)]
+    for ind in range(len(clip_range)):
+        if clip_range[ind][0] < 0:
+            clip_range[ind][0] = 0
+        if clip_range[ind][1] > label.shape[ind]:
+            clip_range[ind][1] = label.shape[ind]
+    r = clip_range
+    # print(r)
+    # 去掉拓展外的fp
+    new_lab = np.zeros(label.shape)
+    # 内部所有前景都保留
+    new_lab[r[0][0] : r[0][1], r[1][0] : r[1][1], r[2][0] : r[2][1]] = label[
+        r[0][0] : r[0][1], r[1][0] : r[1][1], r[2][0] : r[2][1]
+    ]
+    return new_lab
+
+
+# filter_largest_bb(
+#     np.array([[0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 1, 1, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 1]]), 3
+# )
+
+
+def filter_largest_volume(label, ratio=1.2, mode="soft"):
+    """对输入的一个3D标签进行处理，只保留其中最大的连通块
+
+    Parameters
+    ----------
+    label : ndarray
+        3D array：一个分割标签
+    ratio : float
+        分割保留的范围
+    mode : str
+        "soft" / "hard"
+        hard是只保留最大的联通块，soft是保留最大连通块bb内的
+
+    Returns
+    -------
+    type
+        只保留最大连通块的标签.
+
+    """
+    if mode == "soft":
+        return filter_largest_bb(label, ratio)
+    vol, num = ndimage.label(label, np.ones([3, 3, 3]))
+    maxi = 0
+    maxnum = 0
+    for i in range(1, num + 1):
+        count = vol[vol == i].size
+        if count > maxnum:
+            maxi = i
+            maxnum = count
+
+    vol[vol != maxi] = 0
+    vol[vol == maxi] = 1
+    label = vol
+    return label
+
+
+# vol = np.array([[[0, 0, 1, 0], [0, 0, 0, 0], [0, 1, 1, 0]]])
+# vol = np.array([[[0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 1, 1, 1, 0], [0, 0, 1, 0, 0], [0, 0, 0, 0, 1]]])
+# print(filter_largest_volume(vol, 3, mode="soft"))
 
 
 def save_nii(vol, lab, name="test"):
@@ -357,3 +412,43 @@ def slice_count():
 
 
 # print(slice_count())
+
+
+def cal_direction(fname, scan, label):
+    """根据预存信息矫正患者体位.
+
+    Parameters
+    ----------
+    fname : str
+        患者文件名.
+    scan : ndarray
+        3D扫描.
+    label : type
+        3D标签.
+
+    Returns
+    -------
+    ndarray, ndarray
+        校准后的3D数组.
+
+    """
+    f = open("./config/directions.csv")
+    dirs = f.readlines()
+    f.close()
+    # print("dirs: ", dirs)
+    dirs = [x.rstrip("\n") for x in dirs]
+    dirs = [x.split(",") for x in dirs]
+    dic = {}
+    for dir in dirs:
+        dic[dir[0].strip()] = dir[1].strip()
+    dirs = dic
+    try:
+        if dirs[fname] == "2":
+            scan = np.rot90(scan, 3)
+            label = np.rot90(label, 3)
+        else:
+            scan = np.rot90(scan, 1)
+            label = np.rot90(label, 1)
+    except KeyError:
+        pass
+    return scan, label

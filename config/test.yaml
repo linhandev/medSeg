@@ -1,7 +1,7 @@
 DATA:
   NAME: "lits"
-  INPUTS_PATH: "/home/aistudio/data/volume"
-  LABELS_PATH: "/home/aistudio/data/label"
+  INPUTS_PATH: "/home/aistudio/data/scan_temp"
+  LABELS_PATH: "/home/aistudio/data/label_temp"
   PREP_PATH: "/home/aistudio/data/preprocess"
 PREP:
   FRONT: 1

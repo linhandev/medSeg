@@ -69,7 +69,7 @@ def data_reader(part_start=0, part_end=8):
             for ind in inds:
                 if cfg.TRAIN.DATA_COUNT != -1:
                     pbar.update()
-                vol = imgs[ind].reshape(3, 512, 512).astype("float32")
+                vol = imgs[ind].reshape(cfg.TRAIN.THICKNESS, 512, 512).astype("float32")
                 lab = labs[ind].reshape(1, 512, 512).astype("int32")
                 yield vol, lab
         # TODO: 标签平滑
@@ -95,7 +95,7 @@ def main():
     train_init = fluid.Program()
 
     with fluid.program_guard(train_program, train_init):
-        image = fluid.layers.data(name="image", shape=[3, 512, 512], dtype="float32")
+        image = fluid.layers.data(name="image", shape=[cfg.TRAIN.THICKNESS, 512, 512], dtype="float32")
         label = fluid.layers.data(name="label", shape=[1, 512, 512], dtype="int32")
         train_loader = fluid.io.DataLoader.from_generator(
             feed_list=[image, label],
