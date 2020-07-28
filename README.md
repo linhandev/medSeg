@@ -1,5 +1,5 @@
 # medSeg
-受百度[PaddleSeg](https://github.com/paddlepaddle/paddleseg)启发，希望做一个医学影像方向的分割开发套件。主要目标是实现多种2D和3D网络，多种loss和数据增强策略。目前项目还在开发中，但是已经能在肝脏分割场景下做到 .94 的IOU。开发计划见[Project](https://github.com/davidlinhl/medSeg/projects/1)
+仿照百度[PaddleSeg](https://github.com/paddlepaddle/paddleseg)结构实现的一个医学影像方向分割任务开发套件。主要目标是实现多种2D和3D网络，多种loss和数据增强策略。目前项目还在开发中，但是已经能在肝脏分割场景下做到 .94 的IOU。2.5D P-Unet项目基于这个套件实现。开发计划见[Project](https://github.com/davidlinhl/medSeg/projects/1)
 
 ## 项目结构
 #### medseg 项目主体
