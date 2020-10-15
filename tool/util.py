@@ -9,3 +9,8 @@ def listdir(path):
         dirs.remove("checkpoint")
     dirs.sort()  # 通过一样的sort保持vol和seg的对应
     return dirs
+
+
+
+
+###test
