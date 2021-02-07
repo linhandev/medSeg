@@ -1,0 +1,7 @@
+PREP:
+  PLANE: 'xz'
+  FRONT: 1
+  SIZE: [-1, 512,512]
+  THRESH: 512
+  INTERP: True
+  INTERP_PIXDIM: [-1, -1, 1]

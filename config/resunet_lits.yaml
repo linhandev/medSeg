@@ -1,0 +1,63 @@
+DATA:
+  NAME: "lits"
+  INPUTS_PATH: "/home/aistudio/data/scan"
+  LABELS_PATH: "/home/aistudio/data/label"
+  PREP_PATH: "/home/aistudio/data/preprocess"
+PREP:
+  FRONT: 1
+  WINDOW: False
+  CROP: False
+  THRESH: 0
+  SIZE: (512, 512, -1)
+  BATCH_SIZE: 20
+  THICKNESS: 5
+
+TRAIN:
+  ARCHITECTURE: "res_unet"
+  BATCH_SIZE: 32
+  EPOCHS: 30
+  SNAPSHOT_BATCH: 600
+  DISP_BATCH: 20
+  OPTIMIZER: "adam"
+  REG_TYPE: L1
+  REG_COEFF: 3e-6
+  BOUNDARIES: [80000, 20000]
+  LR: [0.002, 0.001, 0.0005]
+
+AUG:
+  ROTATE:
+    RATIO: (0, 0, 0)
+    RANGE: (0,(-15, -16),0)
+  FLIP:
+    RATIO: (0, 0, 0)
+  WINDOWLIZE: True
+  WWWC: (400, 0)
+  ZOOM:
+    RATIO: (0, 0.3, 0.3)
+    RANGE: (0, (0.8, 1.1), (0.8, 1.1))
+
+INFER:
+  PATH:
+    INPUT: "/home/aistudio/data/inference"
+    OUTPUT: "/home/aistudio/data/infer_lab"
+    PARAM: "/home/aistudio/liverSeg/model/lits/inf"
+  BATCH_SIZE: 64
+  THRESH: 0.5
+  FILTER_LARGES: True
+  WWWC: (400, 0)
+
+EVAL:
+  PATH:
+    SEG: "/home/aistudio/data/infer_lab"
+    GT: "/home/aistudio/data/label"
+  METRICS: [
+      "IOU",
+      "Dice",
+      "TP",
+      "TN",
+      "Precision",
+      "Recall",
+      "Sensitivity",
+      "Specificity",
+      "Accuracy",
+    ]

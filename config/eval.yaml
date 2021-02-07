@@ -1,0 +1,20 @@
+EVAL:
+  PATH:
+    SEG: "/data/aorta/300/label/nii/aunet-best"
+    GT: "/data/aorta/300/test/label"
+    NAME: "aunet-best"
+  METRICS: [
+      "IOU",
+      "Dice",
+      "TP",
+      "TN",
+      "Precision",
+      "Recall",
+      "Sensitivity",
+      "Specificity",
+      "Accuracy",
+      "Dice",
+      "IOU",
+      "Assd",
+      "Ravd",
+    ]

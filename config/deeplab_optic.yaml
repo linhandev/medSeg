@@ -1,0 +1,10 @@
+DATA:
+  NAME: "optic"
+  INPUTS_PATH: "/home/aistudio/optic/image"
+  LABELS_PATH: "/home/aistudio/optic/label"
+  PREP_PATH: "/home/aistudio/optic/prep"
+TRAIN:
+  ARCHITECTURE: "deeplabv3p"
+  BATCH_SIZE: 8
+  SNAPSHOT_BATCH: 30
+  DISP_BATCH: 1

@@ -1,0 +1,10 @@
+nibabel
+scikit-image
+tqdm
+numpy
+visualdl
+medpy
+pypinyin
+trimesh
+SimpleITK
+paddleseg
