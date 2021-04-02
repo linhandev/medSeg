@@ -1,25 +1,17 @@
 # 原来的数据和标签分别在一个目录里，进行随机split之后按照pdseg的目录结构放
 import os
 import argparse
+import random
 
-# shutil.move("/home/lin/Desktop/a/test", "/home/lin/Desktop/b")  # 递归移动
+import util
+
+# shutil.move("source", "destination")  # 递归移动
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--base_dir", type=str, required=True)
+parser.add_argument("--dst_dir", type=str, required=True)
 parser.add_argument("--img_folder", type=str, required=True)
 parser.add_argument("--lab_folder", type=str, required=True)
 args = parser.parse_args()
-
-
-def listdir(path):
-    dirs = os.listdir(path)
-    if ".DS_Store" in dirs:
-        dirs.remove(".DS_Store")
-    if "checkpoint" in dirs:
-        dirs.remove("checkpoint")
-
-    dirs.sort()  # 通过一样的sort保持vol和seg的对应
-    return dirs
 
 
 def mv(curr, dest):
@@ -29,43 +21,57 @@ def mv(curr, dest):
     os.rename(curr, dest)
 
 
-split = [8, 2, 0]  # train/val/test
-base_dir = args.base_dir
-folders = ["images", "annotations"]
-sub_folders = ["train", "val", "test"]
-if not os.path.exists(base_dir):
+def move(
+    img_folder,
+    lab_folder,
+    dst_dir,
+    split=[8, 2, 0],
+    folders=["imgs", "annotations"],
+    sub_folders=["train", "val", "test"],
+):
+    # 1. 创建目标目录
     for fd1 in folders:
         for fd2 in sub_folders:
-            os.makedirs(os.path.join(base_dir, fd1, fd2))
+            dir = os.path.join(dst_dir, fd1, fd2)
+            if not os.path.exists(dir):
+                os.makedirs(dir)
 
-img_folder = args.img_folder
-lab_folder = args.lab_folder
+    # 2. 获取图像和标签文件名，打乱
+    img_names = util.listdir(img_folder)
+    lab_names = util.listdir(lab_folder)
+    names = [[i, l] for i, l in zip(img_names, lab_names)]
+    random.shuffle(names)
 
-img_names = listdir(img_folder)
-lab_names = listdir(lab_folder)
+    for idx in range(10):
+        print(names[idx])
 
-print(img_names[:20])
-print("\n\n\n")
-print(lab_names[:20])
-split.insert(0, 0)
-for ind in range(1, len(split)):
-    split[ind] += split[ind - 1]
+    # 3. 计算划分点
+    split.insert(0, 0)
+    for ind in range(1, len(split)):
+        split[ind] += split[ind - 1]
 
-split = [x / split[-1] for x in split]
-split = [int(len(img_names) * split[ind]) for ind in range(4)]
-print(split)
-for part in range(3):
-    print("Moving to folder {}".format(sub_folders[part]))
-    for ind in range(split[part], split[part + 1]):
-        print(img_names[ind], lab_names[ind])
-        assert img_names[ind] == lab_names[ind], "图片和标签名字对不上{}, {}".format(
-            img_names[ind], lab_names[ind]
-        )
-        mv(
-            os.path.join(img_folder, img_names[ind]),
-            os.path.join(base_dir, folders[0], sub_folders[part], img_names[ind]),
-        )
-        mv(
-            os.path.join(lab_folder, lab_names[ind]),
-            os.path.join(base_dir, folders[1], sub_folders[part], lab_names[ind]),
-        )
+    split = [x / split[-1] for x in split]
+    split = [int(len(img_names) * split[ind]) for ind in range(4)]
+    print(split)
+
+    # 4. 进行移动
+    for part in range(3):
+        print(f"正在处理{sub_folders[part]}")
+        for idx in range(split[part], split[part + 1]):
+            img, lab = names[idx]
+            mv(
+                os.path.join(img_folder, img),
+                os.path.join(dst_dir, folders[0], sub_folders[part], img),
+            )
+            mv(
+                os.path.join(lab_folder, lab),
+                os.path.join(dst_dir, folders[1], sub_folders[part], lab),
+            )
+
+
+if __name__ == "__main__":
+    move(
+        img_folder=args.img_folder,
+        lab_folder=args.lab_folder,
+        dst_dir=args.dst_dir,
+    )

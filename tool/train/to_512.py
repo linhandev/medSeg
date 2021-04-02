@@ -7,8 +7,8 @@ import numpy as np
 import scipy.ndimage
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--scan_dir", type=str, default="/home/lin/Desktop/data/aorta/external/nii_raw/")
-parser.add_argument("--out_dir", type=str, default="/home/lin/Desktop/data/aorta/external/nii_512/")
+parser.add_argument("--scan_dir", type=str, default="/home/lin/Desktop/aorta/nii/raw/extern/")
+parser.add_argument("--out_dir", type=str, default="/home/lin/Desktop/aorta/nii/512/extern")
 args = parser.parse_args()
 
 
@@ -36,7 +36,9 @@ def to_512(inf_path):
 
 if __name__ == "__main__":
     names = os.listdir(args.scan_dir)
-    names = [os.path.join(args.scan_dir, n) for n in names if n.endswith("nii") or n.endswith("nii.gz")]
+    names = [
+        os.path.join(args.scan_dir, n) for n in names if n.endswith("nii") or n.endswith("nii.gz")
+    ]
     print(names)
 
     p = Pool(8)
