@@ -75,23 +75,25 @@ def filter_largest_volume(label, ratio=1.2, mode="soft"):
     return label
 
 
-labels = []
+def toint(x):
+    return [int(num) for num in x]
 
-# CHECK: 添加clip到一个前景类型的功能
-def nii2png(
+
+def slice_med(
     scan_path,
     scan_img_dir,
     label_path=None,
     label_img_dir=None,
     rot=0,
-    wwwc=(400, 0),
+    wwwc=(1000, 0),
     thresh=None,
     front=None,
     front_mode=None,
     itv=1,
+    resize=None,
 ):
-    """将nii格式的扫描转成png.
-    扫描和标签一起处理，支持窗口化，旋转，略过没有前景的片
+    """将扫描和标签转成2D切片.
+    扫描和标签一起处理，支持窗口化，旋转，略过没有前景的片，隔固定数量的片取一片
 
     Parameters
     ----------
@@ -117,30 +119,27 @@ def nii2png(
         - None:不进行处理
     itv: int
         每隔itv层取1层
-    Returns
-    -------
-    type
-        Description of returned object.
-
+    resize： list
+        对切片resize到的大小，None是不进行resize，否则给一个列表两个数字，比如[512, 512]
+    format: str
+        结果保存的格式
+        - 图片：cv2.imwrite 支持的图片格式都可以，推荐png，不带点。保存成灰度图会把数据范围拉到0～255
+        - npy：保存成npy格式
     """
-    # TODO: 使用别的库，支持dcm的
-    scanf = sitk.ReadImage(scan_path)
+    scanf = sitk.ReadImage(scan_path)  # TODO: 检查对dcm的支持
     scan_data = sitk.GetArrayFromImage(scanf)
-
     s = scan_data.shape
     print(scan_path, s)
     if s[1] == s[2]:
-        scan_data = np.swapaxes(scan_data, 0, 2)
-    name = os.path.basename(scan_path)
-    # print(name)
-    if scan_data.shape[0] == 1024:
-        print("[WARNNING]", name, "is 1024")
-        # vol = scipy.ndimage.interpolation.zoom(vol, [0.5, 0.5, 1], order=1 if islabel else 3)
+        scan_data = np.swapaxes(scan_data, 0, 2)  # TODO: 检查是否 WH 是不是反了
+    name = osp.basename(scan_path)
 
     if label_path is not None:
         labelf = sitk.ReadImage(label_path)
         label_data = sitk.GetArrayFromImage(labelf)
-        if front_mode is not None:
+        if s[1] == s[2]:
+            scan_data = np.swapaxes(scan_data, 0, 2)  # TODO: 检查是否 WH 是不是反了
+        if front_mode:
             if front_mode == "stack":
                 label_data[label_data < front] = 0
                 label_data[label_data >= front] = 1
@@ -152,9 +151,11 @@ def nii2png(
             label_data = np.swapaxes(label_data, 0, 2)
         assert (
             label_data.shape == scan_data.shape
-        ), "[ERROR] Patient {} scan and image dimension mismatch, scan is {}, label is {}".format(
-            name, scan_data.shape, label_data.shape
-        )
+        ), f"[ERROR] Patient {name}'s scan and image dimension mismatch, scan shape is { scan_data.shape}, label shape is {label_data.shape}"
+    if resize and scan_data.shape[:2] != resize:
+        # TODO: 对标签和图像进行插值
+        print("[WARNNING]", name, "is 1024")
+        # vol = scipy.ndimage.interpolation.zoom(vol, [0.5, 0.5, 1], order=1 if islabel else 3)
 
     for _ in range(rot):
         scan_data = np.rot90(scan_data)
@@ -163,7 +164,7 @@ def nii2png(
             label_data = np.concatenate(
                 [label_data[0][:, :, np.newaxis], label_data, label_data[-1][:, :, np.newaxis]],
                 axis=-1,
-            )
+            )  # 对第一层和最后一层复制一遍
 
     if not os.path.exists(scan_img_dir):
         os.makedirs(scan_img_dir)
@@ -172,12 +173,16 @@ def nii2png(
 
     wl, wh = (wwwc[1] - wwwc[0] / 2, wwwc[1] + wwwc[0] / 2)
     scan_data = scan_data.astype("float32").clip(wl, wh)
-    scan_data = (scan_data - wl) / (wh - wl) * 256
-    scan_data = scan_data.astype("uint8")
+    if format == "npy":
+        scan_data = scan_data.astype("uint16")
+    else:
+        scan_data = (scan_data - wl) / (wh - wl) * 256
+        scan_data = scan_data.astype("uint8")
+
     scan_data = np.concatenate(
         [scan_data[:, :, 0][:, :, np.newaxis], scan_data, scan_data[:, :, -1][:, :, np.newaxis]],
         axis=-1,
-    )
+    )  # 对第一层和最后一层进行复制
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
         for ind in range(1, scan_data.shape[2] - 1, itv):
@@ -190,132 +195,20 @@ def nii2png(
                     label_img_dir,
                     "{}-{}.png".format(name.split(".")[0], str(ind - 1).zfill(4)),
                 )
-                executor.submit(save_png, label_slice, file_path)
+                executor.submit(save_slice, label_slice, file_path, format)
 
             scan_slice = scan_data[:, :, ind - 1 : ind + 2]
             file_path = os.path.join(
                 scan_img_dir, "{}-{}.png".format(name.split(".")[0], str(ind - 1).zfill(4))
             )
-            executor.submit(save_png, scan_slice, file_path)
-            # if label_path:
-            #     label_slice = label_data[:, :, ind]
-            #     file_path = os.path.join(
-            #         label_img_dir,
-            #         "{}-{}.png".format(name.split(".")[0], ind),
-            #     )
-            #     executor.submit(save_png, label_slice, file_path)
+            executor.submit(save_slice, scan_slice, file_path, format)
 
 
-def save_png(slice, file_path):
-    cv2.imwrite(file_path, slice)
-
-
-def nii2png_single(nii_path, png_folder, rot=1, wwwl=(256, 0), islabel=False, thresh=0):
-    """将一个nii扫描转换成一系列图片，并进行简单的检查.
-    # TODO: 检查是否只有一个连通块
-    # TODO: 检查是否只有一种前景
-
-    Parameters
-    ----------
-    nii_path : str
-        nii扫描文件的路径.
-    png_path : type
-        图片存在哪个文件夹.
-    rot : int
-        扫描进行几次旋转，摆正体位.
-    wwwl : (int, int)
-        窗宽窗位.
-    """
-    volf = nib.load(nii_path)
-    nii_name = os.path.basename(nii_path)
-    vol = volf.get_fdata()
-    if vol.shape[0] == 1024:
-        vol = scipy.ndimage.interpolation.zoom(vol, [0.5, 0.5, 1], order=1 if islabel else 3)
-    for _ in range(rot):
-        vol = np.rot90(vol)
-    if not islabel:
-        # vol = vol + np.random.randn() * 50 - 10
-        wl, wh = (wwwl[1] - wwwl[0] / 2, wwwl[1] + wwwl[0] / 2)
-        vol = vol.astype("float32").clip(wl, wh)
-        vol = (vol - wl) / (wh - wl) * 256
-    vol = vol.astype("uint8")
-    if not os.path.exists(png_folder):
-        os.makedirs(png_folder)
-
-    for ind in range(1, vol.shape[2] - 1):
-        if islabel:
-            slice = vol[:, :, ind]
-        else:
-            slice = vol[:, :, ind - 1 : ind + 2]
-        if islabel:
-            sum = np.sum(slice)
-            print(sum, thresh)
-            if sum <= thresh:
-                continue
-            slice[slice == 2] = 1
-
-        file_path = os.path.join(
-            png_folder, "{}-{}.png".format(nii_name.rstrip(".gz").rstrip(".nii"), ind)
-        )
-        # if not islabel:
-        #     if "{}-{}.png".format(nii_name.rstrip(".gz").rstrip(".nii"), ind) not in labels:
-        #         print("{}-{}.png".format(nii_name.rstrip(".gz").rstrip(".nii"), ind))
-        #         continue
-
-        cv2.imwrite(file_path, slice)
-
-
-def nii2png_folder(
-    nii_folder,
-    png_folder,
-    rot=1,
-    wwwl=(400, 0),
-    subfolder=False,
-    islabel=False,
-    thresh=0,
-):
-    """将一个文件夹里所有的nii转换成png.
-
-    Parameters
-    ----------
-    nii_folder : str
-        放所有nii的文件夹.
-    png_folder : str
-        放所有png的文件夹.
-    rot : int
-        旋转几次.
-    wwwl : (int, int)
-        窗宽窗位.
-    subfolder : bool
-        是否给每一个nii创建单独的文件夹.
-
-    """
-    nii_names = os.listdir(nii_folder)
-    for nii_name in tqdm(nii_names):
-        if subfolder:
-            png_folder = os.path.join(png_folder, nii_name)
-        if len(nii_name) > 12:
-            nii2png_single(
-                os.path.join(nii_folder, nii_name),
-                png_folder,
-                1,
-                wwwl,
-                islabel,
-                thresh=thresh,
-            )
-        else:
-            nii2png_single(
-                os.path.join(nii_folder, nii_name),
-                png_folder,
-                3,
-                wwwl,
-                islabel,
-                thresh=thresh,
-            )
-        # print(len(nii_name))
-        # print(nii_name)
-        # input("here")
-        # os.system("rm /home/lin/Desktop/data/aorta/dataset/scan/*")
+def save_slice(slice, file_path, format):
+    if format == "npy":
+        pass
+    else:
+        cv2.imwrite(f"{file_path}.{format}", slice)
 
 
 def check_nii_match(scan_dir, label_dir, remove=False):
@@ -397,7 +290,6 @@ def check_nii_match(scan_dir, label_dir, remove=False):
 
 
 def inspect_pair(scan_path, label_path):
-
     # 如果是nii格式
     # TODO: 完善
     if scan_path.endswith("nii") or scan_path.endswith("gz"):
@@ -750,7 +642,7 @@ def sort_line(polygons):
 def to_pinyin(name, nonum=False):
     new_name = ""
     for ch in name:
-        if u"\u4e00" <= ch <= u"\u9fff":
+        if "\u4e00" <= ch <= "\u9fff":
             new_name += pinyin(ch, style=Style.NORMAL)[0][0]
         else:
             # if nonum and ("0" <= ch <= "9" or ch == "_"):

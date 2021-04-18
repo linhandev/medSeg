@@ -95,21 +95,9 @@ def main():
             ind = int(get_name(img_name)[1])
             img_data[:, :, ind] = img
 
-        # img_data[:, :, -1] = img_data[:, :, -2]
-        # img_data[:, :, 0] = img_data[:, :, 1]
-        # for _ in range(args.rot):
-        #     img_data = np.rot90(img_data)
-        # if args.filter:
-        #     tot = img_data.sum()
-        #     img_data = util.filter_largest_volume(img_data, mode="hard")
-        #     largest = img_data.sum()
-        #     print(patient, largest / tot, file=f)
-        #     f.flush()
-        # newf = nib.Nifti1Image(img_data.astype(np.float64), scanf.affine, scan_header)
-
         executor.submit(
             save_nii, img_data, scanf.affine, scan_header, os.path.join(args.seg_dir, patient)
-        )
+        )  # BUG: 貌似会出现最后一两个进程卡住，无法保存的情况
         # save_nii(img_data, scanf.affine, scan_header, os.path.join(args.seg_dir, patient))
 
     percent_file.close()
