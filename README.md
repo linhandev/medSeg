@@ -6,7 +6,7 @@
 ## 项目结构
 #### medseg 项目主体
 
-- prep_3d.py prep_2d.py 分别对3D和2D的输入数据进行预处理，形成npy格式的训练数据
+- prep_3d.py prep_2d.py 对3D扫描或2D切片进行推理
 - loss.py 定义loss
 - models 定义模型
 - aug.py 定义数据增强方法
@@ -17,17 +17,21 @@
 
 #### tool 工具脚本
 tool中提供了一些实用的工具脚本，[train](./train)目录下主要用于训练前的预处理，[infer](./infer)目录下的主要用于推理和后处理。
-- dcm2nii.py 将dcm格式转换为nii格式
-- folder_split.py 将两个文件夹的训练文件夹随机分成训练/测试/验证集
-- mhd2nii.py 将mhd格式数据转换成nii格式
-- nii2png.py 将nii格式数据转换成png
-- to_512.py 将所有数据插值到512×512大小
-- flood_fill.py 用漫水法填满分割标签
-- to_pinyin.py 将所有文件名由中文转拼音
-- zip_dataset.py 将一个文件夹压缩，压缩包不超过指定大小
-- 2d_diameter.py 在2d平面内，以平行线夹的方式测量血管管径
-- merge.py 将多种前景的分割结果合并进一个文件
-- vote.py 用投票法对结果进行合并
+
+- train
+  - dcm2nii.sh : 将dcm格式文件转成nii
+  - mhd2nii.py : 将mhd格式文件转成nii
+  - resize.py : 将nii格式的扫描或标签转成512大小
+  - dataset_scan.py : 生成数据集总览，包括强度分布和归一化需要的平均中位数
+  - to_slice.py : 将3D扫描和标签转成2D的切片，实测多线程提速1倍左右
+  - vis.py : 随机抽取切片结果或3D序列中的片进行可视化
+  - gen_list.py : 生成数据文件列表，按照比例划分训练/验证/测试集
+  - folder_split.py : 将整个数据集随机划分成训练，验证和测试集
+- infer
+  - 2d_diameter.py : 在切片内测量分割标签中的血管直径
+- zip_dataset.py : 将一个路径下的文件打包，每个压缩包不超过指定大小。和分包zip不同的是每个压缩包都是单独的包，都可以解压
+- flood_fill.py : 对分割标签进行漫水填充
+- to_pinyin.py : 将中文文件名转拼音
 
 #### config 配置文件
 所有配置参考[config.py](https://github.com/davidlinhl/medSeg/blob/master/medseg/utils/config.py)

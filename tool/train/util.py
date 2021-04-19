@@ -1,4 +1,5 @@
 import os
+import os.path as osp
 import logging
 import math
 import concurrent.futures
@@ -91,6 +92,7 @@ def slice_med(
     front_mode=None,
     itv=1,
     resize=None,
+    ext="png",
 ):
     """将扫描和标签转成2D切片.
     扫描和标签一起处理，支持窗口化，旋转，略过没有前景的片，隔固定数量的片取一片
@@ -121,24 +123,20 @@ def slice_med(
         每隔itv层取1层
     resize： list
         对切片resize到的大小，None是不进行resize，否则给一个列表两个数字，比如[512, 512]
-    format: str
+    ext: str
         结果保存的格式
-        - 图片：cv2.imwrite 支持的图片格式都可以，推荐png，不带点。保存成灰度图会把数据范围拉到0～255
+        - 图片：cv2.imwrite 支持的图片格式都可以，推荐png。不带点！保存成灰度图会把数据范围拉到0～255
         - npy：保存成npy格式
     """
+    # 1. 读取扫描和标签
     scanf = sitk.ReadImage(scan_path)  # TODO: 检查对dcm的支持
     scan_data = sitk.GetArrayFromImage(scanf)
-    s = scan_data.shape
-    print(scan_path, s)
-    if s[1] == s[2]:
-        scan_data = np.swapaxes(scan_data, 0, 2)  # TODO: 检查是否 WH 是不是反了
     name = osp.basename(scan_path)
 
-    if label_path is not None:
+    if label_path:
         labelf = sitk.ReadImage(label_path)
         label_data = sitk.GetArrayFromImage(labelf)
-        if s[1] == s[2]:
-            scan_data = np.swapaxes(scan_data, 0, 2)  # TODO: 检查是否 WH 是不是反了
+        # 1.1 有多种目标的标签保留一个前景
         if front_mode:
             if front_mode == "stack":
                 label_data[label_data < front] = 0
@@ -146,74 +144,113 @@ def slice_med(
             if front_mode == "single":
                 label_data[label_data != front] = 0
                 label_data[label_data != 0] = 1
-        s = label_data.shape
-        if s[1] == s[2]:
-            label_data = np.swapaxes(label_data, 0, 2)
-        assert (
-            label_data.shape == scan_data.shape
-        ), f"[ERROR] Patient {name}'s scan and image dimension mismatch, scan shape is { scan_data.shape}, label shape is {label_data.shape}"
-    if resize and scan_data.shape[:2] != resize:
+        if label_data.shape != scan_data.shape:
+            logging.error(
+                f"[ERROR] Patient {name}'s scan and image dimension mismatch, scan shape is { scan_data.shape}, label shape is {label_data.shape}"
+            )
+            return
+    # 2. 对大小不对的进行resize
+    if resize and scan_data.shape[1:] != resize:
         # TODO: 对标签和图像进行插值
-        print("[WARNNING]", name, "is 1024")
+        print("need resize")
         # vol = scipy.ndimage.interpolation.zoom(vol, [0.5, 0.5, 1], order=1 if islabel else 3)
 
-    for _ in range(rot):
-        scan_data = np.rot90(scan_data)
-        if label_path:
-            label_data = np.rot90(label_data)
-            label_data = np.concatenate(
-                [label_data[0][:, :, np.newaxis], label_data, label_data[-1][:, :, np.newaxis]],
-                axis=-1,
-            )  # 对第一层和最后一层复制一遍
+    # 3. 旋转图像
+    scan_data = np.rot90(scan_data, rot, axes=(1, 2))
+    if label_path:
+        label_data = np.rot90(label_data, rot, axes=(1, 2))
 
-    if not os.path.exists(scan_img_dir):
-        os.makedirs(scan_img_dir)
-    if label_path and not os.path.exists(label_img_dir):
-        os.makedirs(label_img_dir)
+    # 4. 复制第一层和最后一层，避免多层的切片少最前和最后的几层
+    # TODO: 支持任意层厚
+    # IDEA: 这里可以for
+    scan_data = np.concatenate(
+        [
+            scan_data[0][np.newaxis, :, :],
+            scan_data,
+            scan_data[-1][np.newaxis, :, :],
+        ],
+        axis=0,
+    )
+    if label_path:
+        label_data = np.concatenate(
+            [
+                label_data[0][np.newaxis, :, :],
+                label_data,
+                label_data[-1][np.newaxis, :, :],
+            ],
+            axis=0,
+        )
 
+    # 5. 进行窗宽窗位处理
     wl, wh = (wwwc[1] - wwwc[0] / 2, wwwc[1] + wwwc[0] / 2)
     scan_data = scan_data.astype("float32").clip(wl, wh)
-    if format == "npy":
+    if ext == "npy":
         scan_data = scan_data.astype("uint16")
     else:
         scan_data = (scan_data - wl) / (wh - wl) * 256
         scan_data = scan_data.astype("uint8")
 
-    scan_data = np.concatenate(
-        [scan_data[:, :, 0][:, :, np.newaxis], scan_data, scan_data[:, :, -1][:, :, np.newaxis]],
-        axis=-1,
-    )  # 对第一层和最后一层进行复制
+    # 6. 准备路径，进行切片和存盘
+    if not os.path.exists(scan_img_dir):
+        os.makedirs(scan_img_dir)
+    if label_path and not os.path.exists(label_img_dir):
+        os.makedirs(label_img_dir)
+    # 计算zfill长度
+    fill_len = 1
+    while scan_data.shape[0] > 10 ** fill_len:
+        fill_len += 1
+    fill_len += 1
+    name = name.split(".")[0]
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count())
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
-        for ind in range(1, scan_data.shape[2] - 1, itv):
-            if label_path:
-                label_slice = label_data[:, :, ind]
-                # 如果进行thresh限制而且这一片不达到这个数，那么就直接跳过，label和scan都不存
-                if thresh is not None and label_slice.sum() <= thresh:
-                    continue
-                file_path = os.path.join(
-                    label_img_dir,
-                    "{}-{}.png".format(name.split(".")[0], str(ind - 1).zfill(4)),
-                )
-                executor.submit(save_slice, label_slice, file_path, format)
-
-            scan_slice = scan_data[:, :, ind - 1 : ind + 2]
-            file_path = os.path.join(
-                scan_img_dir, "{}-{}.png".format(name.split(".")[0], str(ind - 1).zfill(4))
+    for ind in range(1, scan_data.shape[0] - 1, itv):  # TODO: 支持任意层厚
+        # 6.1 可能标签中前景过少触发跳过，所以先处理标签
+        if label_path:
+            label_slice = label_data[ind, :, :]
+            # 前景不到thresh就跳过
+            if thresh and label_slice.sum() < thresh:
+                continue
+            file_path = osp.join(
+                label_img_dir,
+                f"{name}-{str(ind - 1).zfill(fill_len)}.{ext}",
             )
-            executor.submit(save_slice, scan_slice, file_path, format)
+            executor.submit(save_slice, label_slice, file_path)
+            # save_slice(label_slice, file_path)
+        scan_slice = scan_data[ind - 1 : ind + 2, :, :]
+        file_path = osp.join(
+            scan_img_dir,
+            f"{name}-{str(ind-1).zfill(fill_len)}.{ext}",
+        )
+        executor.submit(save_slice, scan_slice, file_path)
+        # save_slice(scan_slice, file_path)
 
 
-def save_slice(slice, file_path, format):
-    if format == "npy":
+def save_slice(slice, file_path):
+    """保存一个切片
+
+    Parameters
+    ----------
+    slice : numpy.ndarray
+        保存的切片数据，CWH格式
+    file_path : str
+        保存文件路径
+    """
+    # 1. 调整文件格式到WHC
+    if len(slice.shape) == 2:
+        slice = slice[:, :, np.newaxis]
+    else:
+        slice = np.swapaxes(slice, 0, 2)
+        slice = np.swapaxes(slice, 0, 1)
+    # 2. 按照文件路径确定保存格式，写盘
+    if file_path.endswith("npy"):
         pass
     else:
-        cv2.imwrite(f"{file_path}.{format}", slice)
+        cv2.imwrite(file_path, slice)
 
 
-def check_nii_match(scan_dir, label_dir, remove=False):
-    # TODO: 用片间间隔和大小计算片内方向的边长，太大或者太小报错
-    """检查两个目录下的扫描和标签是不是对的上.
+def check_nii_match(scan_dir, label_dir):
+    """检查两个目录下的扫描和标签是不是对的上
+    只支持nii或nii.gz文件
 
     Parameters
     ----------
@@ -225,84 +262,103 @@ def check_nii_match(scan_dir, label_dir, remove=False):
     Returns
     -------
     bool
-        比较的结果，对上了返回True，否则False,具体的细节直接打到stdio.
-
+        比较的结果，对上了返回True，否则False，具体的细节直接打到logging.
     """
+    # 1. 获取两个路径下的文件，过滤，去拓展名
     pass_check = True
-    scans = os.listdir(scan_dir)
-    labels = os.listdir(label_dir)
+    scans = listdir(scan_dir)
+    labels = listdir(label_dir)
     scans = [n for n in scans if n.endswith("nii") or n.endswith("gz")]
     labels = [n for n in labels if n.endswith("nii") or n.endswith("gz")]
 
-    scan_names = [n.rstrip(".gz").rstrip(".nii") for n in scans]
-    label_names = [n.rstrip(".gz").rstrip(".nii") for n in labels]
+    scan_names = [n.split(".")[0] for n in scans]
+    label_names = [n.split(".")[0] for n in labels]
 
-    if len(scans) != len(labels):
+    # 2. 检查图像和扫描文件数量和文件名能不能对上
+    if len(scan_names) != len(label_names):
         logging.error(
-            "Number of scnas({}) and labels ({}) don't match".format(len(scans), len(labels))
+            f"Number of scans ({len(scan_names)}) and labels  ({len(label_names)}) don't match"
         )
         pass_check = False
     else:
-        logging.info("Pass file number check")
+        logging.info("Scan and label file number matches!")
 
     names_match = True
-    for ind, s in enumerate(scan_names):
-        if s not in label_names:
-            logging.error("Scan {} dont have corresponding label".format(s))
-            names_match = False
-            print("removing {}".format(s))
-            if remove:
-                os.remove(os.path.join(scan_dir, scans[ind]))
-
-    for l in label_names:
-        if l not in scan_names:
-            logging.error("Label {} dont have corresponding scan".format(l))
-            names_match = False
+    scan_set, label_set = set(scan_names), set(label_names)
+    scan_without_label = scan_set - label_set
+    label_without_scan = label_set - scan_set
+    intersect = scan_set.intersection(label_set)
+    if len(scan_without_label) != 0:
+        names_match = False
+        logging.error("Scans " + " ".join(scan_without_label) + " don't have corresponding label.")
+    if len(label_without_scan) != 0:
+        names_match = False
+        logging.error("Labels " + " ".join(label_without_scan) + " don't have corresponding scan.")
 
     if names_match:
-        logging.info("Pass file names check")
+        logging.info("All file names matche")
     else:
         pass_check = False
 
-    scans = os.listdir(scan_dir)
-    labels = os.listdir(label_dir)
-    scans = [n for n in scans if n.endswith("nii") or n.endswith("gz")]
-    labels = [n for n in labels if n.endswith("nii") or n.endswith("gz")]
+    # 3. 检查有扫描和标签的pair：header有没有问题，扫描和标签大小能不能对上
+    for name in intersect:
+        # 3.1 拓展名
+        if name + ".nii" in scans:
+            scan = name + ".nii"
+        if name + ".nii.gz" in scans:
+            scan = name + ".nii.gz"
+        if name + ".nii" in labels:
+            label = name + ".nii"
+        if name + ".nii.gz" in labels:
+            label = name + ".nii.gz"
 
-    scan_names = [n.rstrip(".gz").rstrip(".nii") for n in scans]
-    label_names = [n.rstrip(".gz").rstrip(".nii") for n in labels]
-
-    for scan_name in scans:
-        scanf = nib.load(os.path.join(scan_dir, scan_name))
-        labelf = nib.load(os.path.join(label_dir, scan_name))
+        scanf = nib.load(os.path.join(scan_dir, scan))
+        labelf = nib.load(os.path.join(label_dir, label))
         if (scanf.affine == np.eye(4)).all():
-            logging.warn("Scan {} have np.eye(4) affine, check the header".format(scan_name))
+            logging.warn(f"Scan {scan} have np.eye(4) affine, check the header")
         if (labelf.affine == np.eye(4)).all():
-            logging.warn("Label {} have np.eye(4) affine, check the header".format(scan_name))
+            logging.warn(f"Label {label} have np.eye(4) affine, check the header")
         if not (labelf.header["dim"] == scanf.header["dim"]).all():
             logging.error(
-                "Label and scan dimension mismatch for {}, scan is {}, label is {}".format(
-                    scan_name, scanf.header["dim"][1:4], labelf.header["dim"][1:4]
-                )
+                f"Label and scan dimension mismatch for {scan} and {label}, check_scan is {scanf.header['dim'][1:4]}, label is {labelf.header['dim'][1:4]}"
             )
             pass_check = False
     return pass_check
 
 
-def inspect_pair(scan_path, label_path):
-    # 如果是nii格式
-    # TODO: 完善
-    if scan_path.endswith("nii") or scan_path.endswith("gz"):
+def read_slice(file_path):
+    if file_path.endswith("npy"):
         pass
-    # TODO: 一对图片放到一个frame
-    if scan_path.endswith("png"):
-        scan = cv2.imread(scan_path)
-        label = cv2.imread(label_path)
-        plt.imshow(scan)
-        plt.show()
-        label = label * 255
-        plt.imshow(label)
-        plt.show()
+    else:
+        return cv2.imread(file_path, cv2.IMREAD_UNCHANGED)
+
+
+def inspect_slice(scan_path, label_path=None, wwwc=[1000, 0]):
+    """可视化2D的切片
+    scan_path 的文件按照wwwc做窗宽窗位。scan_path 也可以传分割标签，wwwc对应写也可以看
+    Parameters
+    ----------
+    scan_path : str
+        扫描或标签文件路径，支持图片和npy格式。多层的扫描会展示多个图像
+    label_path : str
+        标签路径，会叠加到scan的中间一层展示
+    wwwc : list/tuple
+        窗宽窗位，会apply到scan上
+    """
+
+    scan = read_slice(scan_path)
+    if label_path:
+        label = read_slice(label_path)
+
+    print(scan.shape, label.shape)
+    # TODO: 对多片的scan分成多片展示
+    # TODO: label叠加到scan上展示
+    fig = plt.figure(figsize=(20, 20))
+    fig.add_subplot(1, 2, 1)
+    plt.imshow(scan)
+    fig.add_subplot(1, 2, 2)
+    plt.imshow(label)
+    plt.show()
 
 
 def is_right(a, b, c):

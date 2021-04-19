@@ -1,6 +1,6 @@
 """
 将nii和标签批量转成2D切片(png/npy)
-要求扫描和标签按照字典序排序相同，文件名相同，拓展名不同就可以满足这个
+要求扫描和标签按照字典序排序相同（文件名相同，拓展名不同就可以满足这个）
 """
 
 import os
@@ -30,7 +30,13 @@ parser.add_argument(
     default=None,
 )
 parser.add_argument("--wwwc", nargs=2, help="窗宽窗位", default=["1000", "0"])
-parser.add_argument("-r", "--rot", type=int, help="逆时针转90度多少次", default=0)  # TODO: 用库做体位校正
+parser.add_argument(
+    "-r",
+    "--rot",
+    type=int,
+    help="逆时针90度转多少次，可以为负",
+    default=0,
+)  # TODO: 用库做体位校正
 parser.add_argument("-f", "--front", type=int, help="如果标签有多种前景，要保留的前景值", default=None)
 parser.add_argument(
     "-fm",
@@ -47,7 +53,8 @@ parser.add_argument(
     default=1,
 )
 parser.add_argument("-c", "--check", type=bool, help="是否检查数据集", default=False)
-parser.add_argument("--remove", type=bool, help="是否删除检查中没有对应标签的扫描", default=False)
+parser.add_argument("--ext", type=str, help="文件保存的拓展名，不带点", default="png")
+
 args = parser.parse_args()
 
 
@@ -58,14 +65,17 @@ logging.basicConfig(
 
 # TODO: 完善对扫描和标签的检查
 if args.check:
-    util.check_nii_match(args.scan_dir, args.label_dir, remove=args.remove)
+    util.check_nii_match(args.scan_dir, args.label_dir)
 
-logging.info("Discovered scan/label pairs:")
 scans = util.listdir(args.scan_dir)
 if args.label_dir is not None:
     labels = util.listdir(args.label_dir)
+    assert len(labels) == len(
+        scans
+    ), f"The number of labels {len(labels)} is not equal to number of scans {len(scans)}"
+    logging.info("Discovered scan/label pairs:")
     for s, l in zip(scans, labels):
-        logging.info(s + "\t" + l)
+        logging.info(f" {s} \t {l}")
 
 cmd = input(
     f"""Totally {len(scans)} pairs, plz check for any mismatch.
@@ -75,7 +85,6 @@ if cmd.lower() != "y":
     exit("Exit on user command")
 
 progress = tqdm(range(len(scans)))
-# TODO: 研究resize
 
 for scan, label in zip(scans, labels):
     progress.set_description(f"Processing {osp.basename(scan)}")
@@ -90,4 +99,6 @@ for scan, label in zip(scans, labels):
         front=args.front,
         front_mode=args.front_mode,
         itv=args.interval,
+        ext=args.ext,
     )
+    progress.update(n=1)

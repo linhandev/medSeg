@@ -21,7 +21,7 @@ def mv(curr, dest):
     os.rename(curr, dest)
 
 
-def move(
+def split_dataset(
     img_folder,
     lab_folder,
     dst_dir,
@@ -70,7 +70,7 @@ def move(
 
 
 if __name__ == "__main__":
-    move(
+    split_dataset(
         img_folder=args.img_folder,
         lab_folder=args.lab_folder,
         dst_dir=args.dst_dir,

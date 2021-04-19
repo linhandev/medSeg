@@ -1,4 +1,5 @@
-Useful scripts for preprocess and postprocessing medical image data.
+对数据进行预处理和后处理的一些有用的脚本，功能介绍在[../README.md]中有写
+
 
 # 数据格式转换
 对计算机处理来说nii一般是比较方便的。dcm包含的信息最多但是一个文件夹不一定就是一个序列，大量文件读写I/O效率也可能不高。Anyway本项目中都是用的nii格式的输入，所以记录一些其他格式转nii的方法。
@@ -10,7 +11,7 @@ total=`ls -l | wc -l`
 for f in `ls`;
 do count=`expr $count + 1`;
 echo $count / $total;
-dcm2niix -f $f -o ../nii_raw/ -c $f $f
+dcm2niix -f $f -o ../nii/ -c $f $f
 echo -e "\n"
 echo -e "\n"
 done
@@ -30,7 +31,7 @@ itksnap -s ../label/${f} -g ${f} --geometry 1920x1080+0+0;
 done
 ```
 
-beep函数可以用扬声器测试程序发出三声beep，更好的掌握标注一个case的时间。
+beep函数可以用扬声器测试程序发出三声beep，帮助掌握标注一个case的时间。
 ```shell
 beep1()
 {

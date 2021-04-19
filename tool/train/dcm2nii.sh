@@ -1,3 +1,4 @@
+# TODO: 研究dcm2niix，如何转换深路径文件
 import os
 from util import to_pinyin
 

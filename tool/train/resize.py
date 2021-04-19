@@ -7,12 +7,21 @@ import numpy as np
 import scipy.ndimage
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--scan_dir", type=str, default="/home/lin/Desktop/aorta/nii/raw/extern/")
-parser.add_argument("--out_dir", type=str, default="/home/lin/Desktop/aorta/nii/512/extern")
+parser.add_argument("--scan_dir", type=str, required=True, help="扫描或标签路径")
+parser.add_argument("--out_dir", type=str, required=True, help="reisize后输出路径")
+parser.add_argument("--size", nargs=2, required=True, help="resize目标大小")
+paresr.add_argument(
+    "-l",
+    "--is_label",
+    type=bool,
+    default=False,
+    help="是否是标签，如果是标签会使用一阶插值并转成uint8",
+)
 args = parser.parse_args()
 
-
-def to_512(inf_path):
+# TODO: 区分标签和扫描
+# TODO: 实现指定目标大小
+def resize(inf_path):
     name = os.path.basename(inf_path)
     scanf = nib.load(inf_path)
     header = scanf.header.copy()
@@ -39,10 +48,9 @@ if __name__ == "__main__":
     names = [
         os.path.join(args.scan_dir, n) for n in names if n.endswith("nii") or n.endswith("nii.gz")
     ]
-    print(names)
 
     p = Pool(8)
-    p.map(to_512, names)
+    p.map(resize, names)
 
     # for name in names:
     #     to_512(name)
