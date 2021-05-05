@@ -2,7 +2,7 @@
 lits.csv
 test.py
 *.csv
-
+summary.txt
 
 # BOS
 bos_conf.py

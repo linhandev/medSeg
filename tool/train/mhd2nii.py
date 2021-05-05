@@ -16,7 +16,7 @@ args = parser.parse_args()
 if not os.path.exists(args.nii_dir):
     os.makedirs(args.nii_dir)
 
-# TODO: 添加多线程
+# TODO: 添加多进程
 for fname in tqdm(os.listdir(args.mhd_dir)):
     if not fname.endswith(".mhd"):
         continue

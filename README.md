@@ -19,7 +19,6 @@
 tool中提供了一些实用的工具脚本，[train](./train)目录下主要用于训练前的预处理，[infer](./infer)目录下的主要用于推理和后处理。
 
 - train
-  - dcm2nii.sh : 将dcm格式文件转成nii
   - mhd2nii.py : 将mhd格式文件转成nii
   - resize.py : 将nii格式的扫描或标签转成512大小
   - dataset_scan.py : 生成数据集总览，包括强度分布和归一化需要的平均中位数
@@ -29,7 +28,7 @@ tool中提供了一些实用的工具脚本，[train](./train)目录下主要用
   - folder_split.py : 将整个数据集随机划分成训练，验证和测试集
 - infer
   - 2d_diameter.py : 在切片内测量分割标签中的血管直径
-- zip_dataset.py : 将一个路径下的文件打包，每个压缩包不超过指定大小。和分包zip不同的是每个压缩包都是单独的包，都可以解压
+- zip_dataset.py : 将一个路径下的文件打包，每个压缩包不超过指定大小。和分包zip不同的是每个压缩包都是单独的包，都可以解压实例测
 - flood_fill.py : 对分割标签进行漫水填充
 - to_pinyin.py : 将中文文件名转拼音
 

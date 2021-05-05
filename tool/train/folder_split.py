@@ -5,7 +5,6 @@ import random
 
 import util
 
-# shutil.move("source", "destination")  # 递归移动
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dst_dir", type=str, required=True)

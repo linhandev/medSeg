@@ -8,4 +8,3 @@ pypinyin
 trimesh
 SimpleITK
 paddleseg
-paddlepaddle

@@ -1,37 +1,29 @@
 对数据进行预处理和后处理的一些有用的脚本，功能介绍在[../README.md]中有写
 
-
 # 数据格式转换
-对计算机处理来说nii一般是比较方便的。dcm包含的信息最多但是一个文件夹不一定就是一个序列，大量文件读写I/O效率也可能不高。Anyway本项目中都是用的nii格式的输入，所以记录一些其他格式转nii的方法。
+写代码角度讲nii格式一般用起来比较方便。dcm包含的信息多，但是一个文件夹不一定就是一个序列；一层一个文件的保存方式下，进行大量文件读写I/O效率也不高。这个项目基本都用nii格式，记录一些格式转换方法。
 
-dcm2niix可以方便的将dcm转换nii，下面是一个命令行转换的例子。
+[dcm2niix](https://github.com/rordenlab/dcm2niix)可以将dcm转换nii，下面是一个命令行转换的例子。
 ```shell
-count=0 ;
-total=`ls -l | wc -l`
-for f in `ls`;
-do count=`expr $count + 1`;
-echo $count / $total;
-dcm2niix -f $f -o ../nii/ -c $f $f
-echo -e "\n"
-echo -e "\n"
-done
+dcm2niix -f 输出文件名，支持填入多种扫描里的信息 -d 9 -c 在输出nii文件中写注释 dcm文件夹
 ```
-train目录下的 mhd2nii.py 可以将一个目录下的mhd格式扫描转换成nii。
+train目录下的 [mhd2nii.py](./train/mhd2nii.py) 可以将一个目录下的mhd格式扫描转成nii。
 
 # 数据标注
 标注数据的时候ITK-snap用起来很方便，用好命令行参数可以自动进行文件打开，节省时间。
 ```shell
 count=0 ;
+tot=`ls -l | wc -l`
 for f in `ls`;
 do count=`expr $count + 1`;
-echo $count / `ls -l | wc -l`;
-echo ${f};
+echo $count / $tot;
+echo $f;
 echo -e "\n";
-itksnap -s ../label/${f} -g ${f} --geometry 1920x1080+0+0;
+itksnap -s /path/to/label/${f} -g /path/to/scan/${f} --geometry 1920x1080+0+0;
 done
 ```
 
-beep函数可以用扬声器测试程序发出三声beep，帮助掌握标注一个case的时间。
+beep函数可以用扬声器测试程序发出一声beep，结合定时可以更好掌握标注时间
 ```shell
 beep1()
 {
@@ -64,7 +56,7 @@ pid6=$!
 pid8=$!
 
 # 计数
-count=`expr $count + 1`;胡金萍_20201024230539946.nii.gz
+count=`expr $count + 1`;
 echo $count / `ls -l | wc -l`;
 echo ${f};
 echo -e "\n";
@@ -74,7 +66,7 @@ itksnap -s ./${f} -g ../nii/${f} --geometry 1920x1080+0+0;
 
 # 文件归档
 # cp ./${f} ../manual-label/
-mv ./${f} ../manual-finished/
+mv ./${f} ../manual-fin../ished/
 
 # 关闭没响的beep
 kill -9 $pid2
