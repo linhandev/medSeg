@@ -44,6 +44,52 @@ def listdir(path, sort=True):
     return names
 
 
+def blood_sort(polygons):
+    """按照血流反向对血管中的圆进行排序.
+
+    Parameters
+    ----------
+    polygons : list
+        一个血管所有片曾polygon的list.
+
+    Returns
+    -------
+    list
+        按照血流反向排序的polygon list.
+
+    """
+    if len(polygons) == 0:
+        print("Error, got None points")
+        return
+
+    # 1. 计算最低的片层，认为是降主动脉最下面一片，排序的开始
+    ordered = []
+    min_height = polygons[0].height
+    min_ind = 0
+    for idx, p in enumerate(polygons):
+        if p.height < min_height:
+            min_height = p.height
+            min_ind = idx
+
+    # 2. 一直找无序的list中和当前最后一个距离最近的作为下一个
+    ordered.append(polygons[min_ind])
+    del polygons[min_ind]
+
+    while len(polygons) != 0:
+        min_dist = dist(ordered[-1].center, polygons[0].center)
+        min_ind = 0
+        for idx, p in enumerate(polygons):
+            d = dist(ordered[-1].center, p.center)
+            if d < min_dist:
+                min_dist = d
+                min_ind = idx
+        ordered.append(polygons[min_ind])
+        del polygons[min_ind]
+    for idx, p in enumerate(ordered):
+        p.idx = idx
+    return ordered
+
+
 def filter_largest_volume(label, ratio=1.2, mode="soft"):
     """对输入的一个3D标签进行处理，只保留其中最大的连通块
 
@@ -133,13 +179,17 @@ def slice_med(
         - npy：保存成npy格式
     """
     # 1. 读取扫描和标签
-    scanf = sitk.ReadImage(scan_path)  # TODO: 检查对dcm的支持
-    scan_data = sitk.GetArrayFromImage(scanf)
+    # scanf = sitk.ReadImage(scan_path)  # TODO: 检查对dcm的支持
+    # scan_data = sitk.GetArrayFromImage(scanf)
+    scanf = nib.load(scan_path)
+    scan_data = scanf.get_fdata()
     name = osp.basename(scan_path)
 
     if label_path:
-        labelf = sitk.ReadImage(label_path)
-        label_data = sitk.GetArrayFromImage(labelf)
+        # labelf = sitk.ReadImage(label_path)
+        # label_data = sitk.GetArrayFromImage(labelf)
+        labelf = nib.load(label_path)
+        label_data = labelf.get_fdata()
         # 1.1 有多种目标的标签保留一个前景
         if front_mode:
             if front_mode == "stack":
@@ -160,9 +210,9 @@ def slice_med(
         # vol = scipy.ndimage.interpolation.zoom(vol, [0.5, 0.5, 1], order=1 if islabel else 3)
 
     # 3. 旋转图像
-    scan_data = np.rot90(scan_data, rot, axes=(1, 2))
+    scan_data = np.rot90(scan_data, rot)
     if label_path:
-        label_data = np.rot90(label_data, rot, axes=(1, 2))
+        label_data = np.rot90(label_data, rot)
 
     # 4. 复制第一层和最后一层，避免多层的切片少最前和最后的几层
     # TODO: 支持任意层厚
@@ -206,7 +256,8 @@ def slice_med(
     fill_len += 1
     name = name.split(".")[0]
     executor = concurrent.futures.ThreadPoolExecutor(
-        max_workers=multiprocessing.cpu_count())
+        max_workers=multiprocessing.cpu_count()
+    )
 
     for ind in range(1, scan_data.shape[0] - 1, itv):  # TODO: 支持任意层厚
         # 6.1 可能标签中前景过少触发跳过，所以先处理标签
@@ -221,7 +272,7 @@ def slice_med(
             )
             executor.submit(save_slice, label_slice, file_path)
             # save_slice(label_slice, file_path)
-        scan_slice = scan_data[ind - 1: ind + 2, :, :]
+        scan_slice = scan_data[ind - 1 : ind + 2, :, :]
         file_path = osp.join(
             scan_img_dir,
             f"{name}-{str(ind-1).zfill(fill_len)}.{ext}",
@@ -305,7 +356,8 @@ def check_nii_match(scan_dir, label_dir, skip=["", ""]):
         Number
         names_match = False
         logging.error(
-            f"Following labels don't have corresponding scans:\n {(' ' + skip[1]).join(scan_without_label)}")
+            f"Following labels don't have corresponding scans:\n {(' ' + skip[1]).join(scan_without_label)}"
+        )
 
     if names_match:
         logging.info("All file names matche")
@@ -427,8 +479,9 @@ class Polygon:
         """
         # print("___", np.min(self.points, axis=0))
         # print("---", np.max(self.points, axis=0))
-        self.center = list((np.min(self.points, axis=0) +
-                           np.max(self.points, axis=0)) / 2)
+        self.center = list(
+            (np.min(self.points, axis=0) + np.max(self.points, axis=0)) / 2
+        )
         # print(self.center)
         # input("here")
         self.points.sort()
@@ -446,7 +499,9 @@ class Polygon:
         """
 
         def cmp(a):
-            return math.atan((a[1] - self.base[1]) / (a[0] - self.base[0] + self.epsilon))
+            return math.atan(
+                (a[1] - self.base[1]) / (a[0] - self.base[0] + self.epsilon)
+            )
 
         self.points.sort(key=cmp, reverse=True)
 
@@ -515,7 +570,8 @@ class Polygon:
             return [float(res[0]), float(res[1])]
 
         self.points = [
-            [p[0] - self.base[0], p[1] - self.base[1], p[2] - self.base[2]] for p in self.points
+            [p[0] - self.base[0], p[1] - self.base[1], p[2] - self.base[2]]
+            for p in self.points
         ]
         # print("+_+", self.center)
         self.center = [b - a for a, b in zip(self.base, self.center)]
@@ -552,7 +608,9 @@ class Polygon:
         # self.plot_2d()
         center = self.center
         diameters = [self.height]
-        for alpha in np.arange(ang_range[0], ang_range[1], (ang_range[1] - ang_range[0]) / split):
+        for alpha in np.arange(
+            ang_range[0], ang_range[1], (ang_range[1] - ang_range[0]) / split
+        ):
             # TODO: 如果这个线是垂直的
             if alpha == np.pi / 2:
                 continue
@@ -645,7 +703,7 @@ def filter_polygon(points, center, thresh=1):
     while len(points) != 0:
         found = False
         for ind in range(len(points) - 1, -1, -1):
-            if dist(curr_point, points[ind]) < thresh:
+            if dist(curr_point.center, points[ind].center) < thresh:
                 curr_point = points[ind]
                 del points[ind]
                 polygons[p_ind].append(curr_point)

@@ -4,11 +4,12 @@
 """
 import os
 import os.path as osp
-import multiprocessing
 import concurrent
 from time import sleep
 from queue import Queue
 import argparse
+import multiprocessing
+from multiprocessing import Pool
 
 import nibabel as nib
 import cv2
@@ -78,6 +79,7 @@ def get_name(name):
     """
     # TODO: rfind
     pos = -name[::-1].find("-") - 1  # 找到最后一个 -
+    # print(name, name[:pos], int(name[pos + 1 :].split(".")[0]))
     return name[:pos], int(name[pos + 1 :].split(".")[0])
 
 
@@ -88,88 +90,89 @@ class ThreadPool(concurrent.futures.ThreadPoolExecutor):
         self._work_queue = Queue(maxsize=maxsize)
 
 
-# TODO: args
-percent_file = open("./percent.txt", "a+")
+# 检查文件匹配情况
+img_names = util.listdir(args.png_dir, sort=False)
+patient_names = []
+for n in img_names:
+    n, _ = get_name(n)
+    if n not in patient_names:
+        patient_names.append(n)
+patient_names = [n + ".nii.gz" for n in patient_names]
+
+nii_names_set = set(os.listdir(args.scan_dir))
+patient_names_set = set(patient_names)
+for n in patient_names_set - nii_names_set:
+    print(n, "dont have nii")
+for n in nii_names_set - patient_names_set:
+    print(n, "dont have segmentation result")
+patient_names.sort()
+print(patient_names)
+
+input("Press any key to start！")
+if args.percent:
+    percent_file = open(args.percent, "a+")
+if not os.path.exists(args.seg_dir):
+    os.makedirs(args.seg_dir)
 
 
-def main():
-    # 检查文件匹配情况
-    img_names = util.listdir(args.png_dir, sort=False)
-    patient_names = []
-    for n in img_names:
-        # n = n.split("-")
-        n, _ = get_name(n)
-        if n not in patient_names:
-            patient_names.append(n)
-    patient_names = [n + ".nii.gz" for n in patient_names]
+def run(patient):
+    if osp.exists(osp.join(args.seg_dir, patient)):
+        print(patient, "already finished, skipping")
+        return
 
-    nii_names_set = set(os.listdir(args.scan_dir))
-    patient_names_set = set(patient_names)
-    for n in patient_names_set - nii_names_set:
-        print(n, "dont have nii")
-    for n in nii_names_set - patient_names_set:
-        print(n, "dont have segmentation result")
-    patient_names.sort()
-    print(patient_names)
+    patient_imgs = [n for n in img_names if get_name(n)[0] == patient.split(".")[0]]
+    patient_imgs.sort(key=lambda n: int(get_name(n)[1]))
+    # print(patient, patient_imgs, len(patient_imgs))
+    label = cv2.imread(
+        os.path.join(args.png_dir, patient_imgs[0]), cv2.IMREAD_UNCHANGED
+    )
+    s = label.shape
+    label_data = np.zeros([s[0], s[1], len(patient_imgs)], dtype="uint8")
 
-    input("Press any key to start！")
-    if not os.path.exists(args.seg_dir):
-        os.makedirs(args.seg_dir)
+    try:
+        # print(os.path.join(args.scan_dir, patient))
+        scanf = nib.load(os.path.join(args.scan_dir, patient))
+        scan_header = scanf.header
+    except:
+        print(f"[ERROR] {patient}'s scan is not found! Skipping {patient}")
+        return
+        # scanf = nib.load(os.path.join(args.scan_dir, "张金华_20201024213424575a.nii"))
+        # scan_header = scanf.header
 
-    pbar = tqdm(patient_names)
-    executor = ThreadPool(max_workers=multiprocessing.cpu_count())
+    for img_name in patient_imgs:
+        img = cv2.imread(os.path.join(args.png_dir, img_name), cv2.IMREAD_UNCHANGED)
+        ind = int(get_name(img_name)[1])
+        label_data[:, :, ind] = img
 
-    for patient in pbar:
-        pbar.set_description(patient)
-        if osp.exists(osp.join(args.seg_dir, patient)):
-            print(patient, "already finished, skipping")
-            continue
+    save_nii(
+        label_data,
+        scanf.affine,
+        scan_header,
+        os.path.join(args.seg_dir, patient),
+    )  # BUG: 貌似会出现最后一两个进程卡住，无法保存的情况
 
-        patient_imgs = [n for n in img_names if get_name(n)[0] == patient.split(".")[0]]
-        patient_imgs.sort(key=lambda n: int(get_name(n)[1]))
-        # print(patient, patient_imgs, len(patient_imgs))
-        # TODO: 根据推理图片大小给np数组
-        label = cv2.imread(os.path.join(args.png_dir, patient_imgs[0]), cv2.IMREAD_UNCHANGED)
-        s = label.shape
-        label_data = np.zeros([s[0], s[1], len(patient_imgs)], dtype="uint8")
 
-        try:
-            print(os.path.join(args.scan_dir, patient))
-            scanf = nib.load(os.path.join(args.scan_dir, patient))
-            scan_header = scanf.header
-        except:
-            print(f"[ERROR] {patient}'s scan is not found! Skipping {patient}")
-            continue
-            # scanf = nib.load(os.path.join(args.scan_dir, "张金华_20201024213424575a.nii"))
-            # scan_header = scanf.header
-
-        for img_name in patient_imgs:
-            img = cv2.imread(os.path.join(args.png_dir, img_name), cv2.IMREAD_UNCHANGED)
-            ind = int(get_name(img_name)[1])
-            label_data[:, :, ind] = img
-
-        executor.submit(
-            save_nii, label_data, scanf.affine, scan_header, os.path.join(args.seg_dir, patient)
-        )  # BUG: 貌似会出现最后一两个进程卡住，无法保存的情况
-        # save_nii(label_data, scanf.affine, scan_header, os.path.join(args.seg_dir, patient))
-
+if args.percent:
     percent_file.close()
 
 
 def save_nii(label_data, affine, header, dir):
     print("++++", dir)
-    for _ in range(args.rot):
-        label_data = np.rot90(label_data)
+    print(label_data.shape)
+    label_data = np.rot90(label_data, args.rot, axes=(0, 1))
+    label_data = np.transpose(label_data, [1, 0, 2])
     if args.filter:
         tot = label_data.sum()
         label_data = util.filter_largest_volume(label_data, mode="hard")
         largest = label_data.sum()
-        print(osp.basename(dir), largest / tot, file=percent_file)
-        percent_file.flush()
+        if args.percent:
+            print(osp.basename(dir), largest / tot, file=percent_file)
+            percent_file.flush()
     newf = nib.Nifti1Image(label_data.astype(np.float64), affine, header)
     nib.save(newf, dir)
     print("--------", "finish", dir)
 
 
-if __name__ == "__main__":
-    main()
+print(patient_names)
+with Pool(multiprocessing.cpu_count()) as p:
+    p.map(run, patient_names)

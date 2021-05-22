@@ -26,7 +26,7 @@ parser.add_argument(
     "-s",
     "--size",
     nargs=2,
-    help="输出片的大小，不声明这个参数不进行任何插值，否则扫描3阶插值，标签1阶插值到这个大小",
+    help="输出片的大小，不声明这个参数不进行任何插值，否则扫描3阶插值，标签0阶插值到这个大小",
     default=None,
 )
 parser.add_argument("--wwwc", nargs=2, help="窗宽窗位", default=["1000", "0"])
@@ -52,7 +52,7 @@ parser.add_argument(
     help="每隔这个数量取1片，重建层间距很小，片层很多的时候可以用这个跳过一些片",
     default=1,
 )
-parser.add_argument("-c", "--check", type=bool, help="是否检查数据集", default=False)
+parser.add_argument("-c", "--check", default=False, action="store_true", help="是否检查数据集")
 parser.add_argument("--ext", type=str, help="文件保存的拓展名，不带点", default="png")
 
 args = parser.parse_args()
@@ -76,11 +76,16 @@ if args.label_dir is not None:
     logging.info("Discovered scan/label pairs:")
     for s, l in zip(scans, labels):
         logging.info(f" {s} \t {l}")
-
-cmd = input(
-    f"""Totally {len(scans)} pairs, plz check for any mismatch.
-    Input Y/y to continue, input anything else to stop: """
-)
+    cmd = input(
+        f"""Totally {len(scans)} pairs, plz check for any mismatch.
+        Input Y/y to continue, input anything else to stop: """
+    )
+else:
+    cmd = input(
+        f"""Totally {len(scans)} scans.
+        Input Y/y to continue, input anything else to stop: """
+    )
+    labels = [None for _ in range(len(scans))]
 if cmd.lower() != "y":
     exit("Exit on user command")
 
