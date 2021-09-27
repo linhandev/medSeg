@@ -4,7 +4,13 @@ import os.path as osp
 import cv2
 import matplotlib.pyplot as plt
 
-base_dir = "/home/lin/Desktop/aorta/lidc/imgs"
+
+for k, v in os.environ.items():
+    if k.startswith("QT_") and "cv2" in v:
+        del os.environ[k]
+
+
+base_dir = "/home/lin/Desktop/data/lits/img"
 img_dir = osp.join(base_dir, "JPEGImages")
 lab_dir = osp.join(base_dir, "Annotations")
 
@@ -14,6 +20,7 @@ for f in os.listdir(lab_dir)[:30]:
 
     img = cv2.imread(img)
     lab = cv2.imread(lab, cv2.IMREAD_UNCHANGED)
+    print(lab.sum())
     lab = lab * 255
     # lab = lab.reshape([512, 512, 1])
     print(img.shape, lab.shape)

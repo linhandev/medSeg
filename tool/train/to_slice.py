@@ -16,17 +16,23 @@ parser.add_argument("--scan_dir", type=str, help="扫描文件路径", required=
 parser.add_argument("--label_dir", type=str, help="标签文件路径", default=None)
 parser.add_argument("--out_dir", type=str, help="数据集输出路径", required=True)
 parser.add_argument(
+    "--thick",
+    type=int,
+    help="切片厚度，默认3。如果是保存成png格式必须为3",
+    default=3,
+)
+parser.add_argument(
     "-t",
     "--thresh",
     type=int,
-    help="前景数量超过这个数才包含到数据集里，否则这个slice跳过",
+    help="前景像素数量大于这个数才包含到数据集里，否则这个slice跳过",
     default=None,
 )
 parser.add_argument(
     "-s",
     "--size",
     nargs=2,
-    help="输出片的大小，不声明这个参数不进行任何插值，否则扫描3阶插值，标签0阶插值到这个大小",
+    help="输出片的大小，不声明这个参数不进行任何插值，否则扫描3阶插值，标签0阶缩放到这个大小",
     default=None,
 )
 parser.add_argument("--wwwc", nargs=2, help="窗宽窗位", default=["1000", "0"])
@@ -57,11 +63,23 @@ parser.add_argument("--ext", type=str, help="文件保存的拓展名，不带�
 
 args = parser.parse_args()
 
-
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s",
 )
+
+if args.thick % 2 != 1:
+    logging.error(
+        f"The thickkess argument {args.thick} is not odd, plz use an odd number."
+    )
+    exit()
+
+if args.ext == "png" and args.thick not in [1, 3]:
+    logging.error(
+        f"Can't save {args.thick} channel image with png format. Png format only supports 1 or 3 channels. Switch to save in npy format instead."
+    )
+    exit()
+
 
 # TODO: 完善对扫描和标签的检查
 if args.check:
@@ -98,6 +116,7 @@ for scan, label in zip(scans, labels):
         osp.join(args.out_dir, "JPEGImages"),
         osp.join(args.label_dir, label) if args.label_dir else None,
         osp.join(args.out_dir, "Annotations") if args.label_dir else None,
+        args.thick,
         rot=args.rot,
         wwwc=util.toint(args.wwwc),
         thresh=args.thresh,

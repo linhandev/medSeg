@@ -135,6 +135,7 @@ def slice_med(
     scan_img_dir,
     label_path=None,
     label_img_dir=None,
+    thich=3,
     rot=0,
     wwwc=(1000, 0),
     thresh=None,
@@ -157,6 +158,8 @@ def slice_med(
         标签nii路径.
     label_img_dir : str
         标签生成png放到这.
+    thick : int
+        保存切片的厚度，默认3层
     rot : int
         进行几次旋转，如果有标签会一起.
     wwwc : list/tuple
@@ -179,10 +182,12 @@ def slice_med(
         - npy：保存成npy格式
     """
     # 1. 读取扫描和标签
+    # 格式应为 [层，横向，竖向]
     # scanf = sitk.ReadImage(scan_path)  # TODO: 检查对dcm的支持
     # scan_data = sitk.GetArrayFromImage(scanf)
     scanf = nib.load(scan_path)
     scan_data = scanf.get_fdata()
+    scan_data = np.transpose(scan_data, [2, 0, 1])
     name = osp.basename(scan_path)
 
     if label_path:
@@ -190,6 +195,7 @@ def slice_med(
         # label_data = sitk.GetArrayFromImage(labelf)
         labelf = nib.load(label_path)
         label_data = labelf.get_fdata()
+        label_data = np.transpose(label_data, [2, 0, 1])
         # 1.1 有多种目标的标签保留一个前景
         if front_mode:
             if front_mode == "stack":
@@ -210,30 +216,31 @@ def slice_med(
         # vol = scipy.ndimage.interpolation.zoom(vol, [0.5, 0.5, 1], order=1 if islabel else 3)
 
     # 3. 旋转图像
-    scan_data = np.rot90(scan_data, rot)
+    scan_data = np.rot90(scan_data, rot, (1, 2))
     if label_path:
-        label_data = np.rot90(label_data, rot)
+        label_data = np.rot90(label_data, rot, (1, 2))
 
     # 4. 复制第一层和最后一层，避免多层的切片少最前和最后的几层
-    # TODO: 支持任意层厚
-    # IDEA: 这里可以for
-    scan_data = np.concatenate(
-        [
-            scan_data[0][np.newaxis, :, :],
-            scan_data,
-            scan_data[-1][np.newaxis, :, :],
-        ],
-        axis=0,
-    )
-    if label_path:
-        label_data = np.concatenate(
+    gap = int((thich - 1) / 2)
+
+    for _ in range(gap):
+        scan_data = np.concatenate(
             [
-                label_data[0][np.newaxis, :, :],
-                label_data,
-                label_data[-1][np.newaxis, :, :],
+                scan_data[0][np.newaxis, :, :],
+                scan_data,
+                scan_data[-1][np.newaxis, :, :],
             ],
             axis=0,
         )
+        if label_path:
+            label_data = np.concatenate(
+                [
+                    label_data[0][np.newaxis, :, :],
+                    label_data,
+                    label_data[-1][np.newaxis, :, :],
+                ],
+                axis=0,
+            )
 
     # 5. 进行窗宽窗位处理
     wl, wh = (wwwc[1] - wwwc[0] / 2, wwwc[1] + wwwc[0] / 2)
@@ -258,13 +265,12 @@ def slice_med(
     executor = concurrent.futures.ThreadPoolExecutor(
         max_workers=multiprocessing.cpu_count()
     )
-
-    for ind in range(1, scan_data.shape[0] - 1, itv):  # TODO: 支持任意层厚
+    for ind in range(gap, scan_data.shape[0] - gap, itv):  # TODO: 支持任意层厚
         # 6.1 可能标签中前景过少触发跳过，所以先处理标签
         if label_path:
             label_slice = label_data[ind, :, :]
             # 前景不到thresh就跳过
-            if thresh and label_slice.sum() < thresh:
+            if thresh is not None and label_slice.sum() <= thresh:
                 continue
             file_path = osp.join(
                 label_img_dir,
@@ -272,7 +278,7 @@ def slice_med(
             )
             executor.submit(save_slice, label_slice, file_path)
             # save_slice(label_slice, file_path)
-        scan_slice = scan_data[ind - 1 : ind + 2, :, :]
+        scan_slice = scan_data[ind - gap : ind + gap + 1, :, :]
         file_path = osp.join(
             scan_img_dir,
             f"{name}-{str(ind-1).zfill(fill_len)}.{ext}",
