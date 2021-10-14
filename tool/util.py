@@ -144,6 +144,7 @@ def slice_med(
     itv=1,
     resize=None,
     ext="png",
+    transpose=False,
 ):
     """将扫描和标签转成2D切片.
     扫描和标签一起处理，支持窗口化，旋转，略过没有前景的片，隔固定数量的片取一片
@@ -180,14 +181,19 @@ def slice_med(
         结果保存的格式
         - 图片：cv2.imwrite 支持的图片格式都可以，推荐png。不带点！保存成灰度图会把数据范围拉到0～255
         - npy：保存成npy格式
+    transpose: bool
+        是否调整维度顺序
     """
+    # TODO: 将预处理和保存分开，pipeline增加效率
+
     # 1. 读取扫描和标签
     # 格式应为 [层，横向，竖向]
     # scanf = sitk.ReadImage(scan_path)  # TODO: 检查对dcm的支持
     # scan_data = sitk.GetArrayFromImage(scanf)
     scanf = nib.load(scan_path)
     scan_data = scanf.get_fdata()
-    scan_data = np.transpose(scan_data, [2, 0, 1])
+    if transpose:
+        scan_data = np.transpose(scan_data, [2, 0, 1])
     name = osp.basename(scan_path)
 
     if label_path:
@@ -195,7 +201,8 @@ def slice_med(
         # label_data = sitk.GetArrayFromImage(labelf)
         labelf = nib.load(label_path)
         label_data = labelf.get_fdata()
-        label_data = np.transpose(label_data, [2, 0, 1])
+        if transpose:
+            label_data = np.transpose(label_data, [2, 0, 1])
         # 1.1 有多种目标的标签保留一个前景
         if front_mode:
             if front_mode == "stack":
@@ -248,7 +255,7 @@ def slice_med(
     if ext == "npy":
         scan_data = scan_data.astype("uint16")
     else:
-        scan_data = (scan_data - wl) / (wh - wl) * 256
+        scan_data = (scan_data - wl) / (wh - wl) * 255
         scan_data = scan_data.astype("uint8")
 
     # 6. 准备路径，进行切片和存盘
