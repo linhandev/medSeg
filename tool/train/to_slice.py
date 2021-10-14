@@ -60,7 +60,7 @@ parser.add_argument(
 )
 parser.add_argument("-c", "--check", default=False, action="store_true", help="是否检查数据集")
 parser.add_argument("--ext", type=str, help="文件保存的拓展名，不带点", default="png")
-
+parser.add_argument("--transpose", type=bool, default=False, help="是否调整数据维度顺序")
 args = parser.parse_args()
 
 logging.basicConfig(
@@ -124,5 +124,6 @@ for scan, label in zip(scans, labels):
         front_mode=args.front_mode,
         itv=args.interval,
         ext=args.ext,
+        transpose=args.transpose,
     )
     progress.update(n=1)
