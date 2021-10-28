@@ -145,6 +145,7 @@ def slice_med(
     resize=None,
     ext="png",
     transpose=False,
+    prefix="",
 ):
     """将扫描和标签转成2D切片.
     扫描和标签一起处理，支持窗口化，旋转，略过没有前景的片，隔固定数量的片取一片
@@ -183,18 +184,27 @@ def slice_med(
         - npy：保存成npy格式
     transpose: bool
         是否调整维度顺序
+    prefix: str
+        输出文件前缀
     """
-    # TODO: 将预处理和保存分开，pipeline增加效率
-
     # 1. 读取扫描和标签
     # 格式应为 [层，横向，竖向]
-    # scanf = sitk.ReadImage(scan_path)  # TODO: 检查对dcm的支持
-    # scan_data = sitk.GetArrayFromImage(scanf)
+    print(scan_path, label_path)
     scanf = nib.load(scan_path)
     scan_data = scanf.get_fdata()
     if transpose:
         scan_data = np.transpose(scan_data, [2, 0, 1])
     name = osp.basename(scan_path)
+    # print(scan_data.shape)
+
+    # 2. 进行窗宽窗位处理 (早做少吃内存)
+    wl, wh = (wwwc[1] - wwwc[0] / 2, wwwc[1] + wwwc[0] / 2)
+    scan_data = scan_data.astype("float32").clip(wl, wh)
+    if ext == "npy":
+        scan_data = scan_data.astype("uint16")
+    else:
+        scan_data = (scan_data - wl) / (wh - wl) * 255
+        scan_data = scan_data.astype("uint8")
 
     if label_path:
         # labelf = sitk.ReadImage(label_path)
@@ -216,18 +226,20 @@ def slice_med(
                 f"[ERROR] Patient {name}'s scan and image dimension mismatch, scan shape is {scan_data.shape}, label shape is {label_data.shape}"
             )
             return
-    # 2. 对大小不对的进行resize
+        label_data = label_data.astype("uint8")
+
+    # 3. 对大小不对的进行resize
     if resize and scan_data.shape[1:] != resize:
         # TODO: 对标签和图像进行插值
         print("need resize")
         # vol = scipy.ndimage.interpolation.zoom(vol, [0.5, 0.5, 1], order=1 if islabel else 3)
 
-    # 3. 旋转图像
+    # 4. 旋转图像
     scan_data = np.rot90(scan_data, rot, (1, 2))
     if label_path:
         label_data = np.rot90(label_data, rot, (1, 2))
 
-    # 4. 复制第一层和最后一层，避免多层的切片少最前和最后的几层
+    # 5. 复制第一层和最后一层，避免多层的切片少最前和最后的几层
     gap = int((thich - 1) / 2)
 
     for _ in range(gap):
@@ -248,15 +260,6 @@ def slice_med(
                 ],
                 axis=0,
             )
-
-    # 5. 进行窗宽窗位处理
-    wl, wh = (wwwc[1] - wwwc[0] / 2, wwwc[1] + wwwc[0] / 2)
-    scan_data = scan_data.astype("float32").clip(wl, wh)
-    if ext == "npy":
-        scan_data = scan_data.astype("uint16")
-    else:
-        scan_data = (scan_data - wl) / (wh - wl) * 255
-        scan_data = scan_data.astype("uint8")
 
     # 6. 准备路径，进行切片和存盘
     if not os.path.exists(scan_img_dir):
@@ -281,14 +284,14 @@ def slice_med(
                 continue
             file_path = osp.join(
                 label_img_dir,
-                f"{name}-{str(ind - 1).zfill(fill_len)}.{ext}",
+                f"{prefix}{name}-{str(ind - 1).zfill(fill_len)}.{ext}",
             )
             executor.submit(save_slice, label_slice, file_path)
             # save_slice(label_slice, file_path)
         scan_slice = scan_data[ind - gap : ind + gap + 1, :, :]
         file_path = osp.join(
             scan_img_dir,
-            f"{name}-{str(ind-1).zfill(fill_len)}.{ext}",
+            f"{prefix}{name}-{str(ind-1).zfill(fill_len)}.{ext}",
         )
         executor.submit(save_slice, scan_slice, file_path)
         # save_slice(scan_slice, file_path)

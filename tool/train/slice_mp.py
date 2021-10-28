@@ -2,12 +2,13 @@
 将nii和标签批量转成2D切片(png/npy)
 要求扫描和标签按照字典序排序相同（文件名相同，拓展名不同就可以满足这个）
 """
-
+import multiprocessing
 import os
 import os.path as osp
 import argparse
 import logging
 from tqdm import tqdm
+import functools
 
 import util
 
@@ -60,8 +61,12 @@ parser.add_argument(
 )
 parser.add_argument("-c", "--check", default=False, action="store_true", help="是否检查数据集")
 parser.add_argument("--ext", type=str, help="文件保存的拓展名，不带点", default="png")
-parser.add_argument("--transpose", type=bool, default=False, help="是否调整数据维度顺序")
-parser.add_argument("--prefix", type=str, help="文件保存的前缀", default=None)
+parser.add_argument(
+    "--transpose", default=False, action="store_true", help="是否调整数据维度顺序"
+)
+parser.add_argument("--prefix", type=str, help="文件保存的前缀", default="")
+parser.add_argument("-p", "--process", type=int, help="进程数", default=2)
+
 args = parser.parse_args()
 
 logging.basicConfig(
@@ -108,24 +113,29 @@ else:
 if cmd.lower() != "y":
     exit("Exit on user command")
 
-progress = tqdm(range(len(scans)))
-
+pool = multiprocessing.Pool(processes=args.process)
+tasks = []
 for scan, label in zip(scans, labels):
-    progress.set_description(f"Processing {osp.basename(scan)}")
-    util.slice_med(
-        osp.join(args.scan_dir, scan),
-        osp.join(args.out_dir, "JPEGImages"),
-        osp.join(args.label_dir, label) if args.label_dir else None,
-        osp.join(args.out_dir, "Annotations") if args.label_dir else None,
-        args.thick,
-        rot=args.rot,
-        wwwc=util.toint(args.wwwc),
-        thresh=args.thresh,
-        front=args.front,
-        front_mode=args.front_mode,
-        itv=args.interval,
-        ext=args.ext,
-        transpose=args.transpose,
-        prefix=args.prefix,
+    tasks.append(
+        (
+            osp.join(args.scan_dir, scan),
+            osp.join(args.out_dir, "JPEGImages"),
+            osp.join(args.label_dir, label) if args.label_dir else None,
+            osp.join(args.out_dir, "Annotations") if args.label_dir else None,
+            args.thick,
+            args.rot,
+            util.toint(args.wwwc),
+            args.thresh,
+            args.front,
+            args.front_mode,
+            args.interval,
+            None,
+            args.ext,
+            args.transpose,
+            args.prefix,
+        )
     )
-    progress.update(n=1)
+pool.starmap(util.slice_med, tasks)
+
+pool.close()
+pool.join()
